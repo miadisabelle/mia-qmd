@@ -15,6 +15,7 @@ texts/
 !skills/**/*.md
 !finetune/*.md
 !docs/*.md
+!rispecs/*.md
 finetune/outputs/
 finetune/data/train/
 .claude/
