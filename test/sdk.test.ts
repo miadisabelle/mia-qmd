@@ -22,6 +22,7 @@ import {
   type VectorSearchOptions,
   type ExpandQueryOptions,
 } from "../src/index.js";
+import { setDefaultLlamaCpp } from "../src/llm.js";
 
 // =============================================================================
 // Test Helpers
@@ -602,51 +603,6 @@ describe("search (unified API)", () => {
     await expect(store.search({} as SearchOptions)).rejects.toThrow("requires either 'query' or 'queries'");
   });
 
-  test("search() with query and rerank:false returns results", async () => {
-    const results = await store.search({ query: "authentication", rerank: false });
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0]).toHaveProperty("file");
-    expect(results[0]).toHaveProperty("score");
-    expect(results[0]).toHaveProperty("title");
-    expect(results[0]).toHaveProperty("bestChunk");
-    expect(results[0]).toHaveProperty("docid");
-  }, 120_000);
-
-  test("search() with intent and rerank:false returns results", async () => {
-    const results = await store.search({
-      query: "meeting",
-      intent: "quarterly planning and roadmap",
-      rerank: false,
-    });
-    expect(results.length).toBeGreaterThan(0);
-  }, 120_000);
-
-  test("search() with collection filter", async () => {
-    const results = await store.search({
-      query: "authentication",
-      collection: "docs",
-      rerank: false,
-    });
-    for (const r of results) {
-      expect(r.file).toMatch(/^qmd:\/\/docs\//);
-    }
-  });
-
-  test("search() with collections filter", async () => {
-    const results = await store.search({
-      query: "authentication",
-      collections: ["docs"],
-      rerank: false,
-    });
-    for (const r of results) {
-      expect(r.file).toMatch(/^qmd:\/\/docs\//);
-    }
-  });
-
-  test("search() with limit", async () => {
-    const results = await store.search({ query: "meeting", limit: 1, rerank: false });
-    expect(results.length).toBeLessThanOrEqual(1);
-  });
 
   test("search() with pre-expanded queries and rerank:false", async () => {
     const results = await store.search({
@@ -659,9 +615,58 @@ describe("search (unified API)", () => {
     expect(results.length).toBeGreaterThan(0);
   });
 
-  test("search() returns empty for non-matching query", async () => {
-    const results = await store.search({ query: "xyznonexistentterm123", rerank: false });
-    expect(results).toHaveLength(0);
+  // Tests below use search({ query: ... }) which triggers LLM query expansion
+  describe.skipIf(!!process.env.CI)("with LLM query expansion", () => {
+    test("search() with query and rerank:false returns results", async () => {
+      const results = await store.search({ query: "authentication", rerank: false });
+      expect(results.length).toBeGreaterThan(0);
+      expect(results[0]).toHaveProperty("file");
+      expect(results[0]).toHaveProperty("score");
+      expect(results[0]).toHaveProperty("title");
+      expect(results[0]).toHaveProperty("bestChunk");
+      expect(results[0]).toHaveProperty("docid");
+    });
+
+    test("search() with intent and rerank:false returns results", async () => {
+      const results = await store.search({
+        query: "meeting",
+        intent: "quarterly planning and roadmap",
+        rerank: false,
+      });
+      expect(results.length).toBeGreaterThan(0);
+    });
+
+    test("search() with collection filter", async () => {
+      const results = await store.search({
+        query: "authentication",
+        collection: "docs",
+        rerank: false,
+      });
+      for (const r of results) {
+        expect(r.file).toMatch(/^qmd:\/\/docs\//);
+      }
+    });
+
+    test("search() with collections filter", async () => {
+      const results = await store.search({
+        query: "authentication",
+        collections: ["docs"],
+        rerank: false,
+      });
+      for (const r of results) {
+        expect(r.file).toMatch(/^qmd:\/\/docs\//);
+      }
+    });
+
+    test("search() with limit", async () => {
+      const results = await store.search({ query: "meeting", limit: 1, rerank: false });
+      expect(results.length).toBeLessThanOrEqual(1);
+    });
+
+    test("search() returns empty for non-matching query", async () => {
+      const results = await store.search({ query: "xyznonexistentterm123", rerank: false });
+      expect(results).toHaveLength(0);
+    });
   });
 });
 
@@ -918,6 +923,79 @@ describe("update", () => {
     expect(results.length).toBeGreaterThan(0);
 
     await store.close();
+  });
+});
+
+describe("embed", () => {
+  function createFakeTokenizer() {
+    return {
+      async tokenize(text: string) {
+        return new Array(Math.max(1, Math.ceil(text.length / 16))).fill(1);
+      },
+    };
+  }
+
+  function createFakeEmbedLlm() {
+    const embedBatchCalls: string[][] = [];
+    return {
+      embedBatchCalls,
+      async embed(_text: string) {
+        return { embedding: [0.1, 0.2, 0.3], model: "fake-embed" };
+      },
+      async embedBatch(texts: string[]) {
+        embedBatchCalls.push([...texts]);
+        return texts.map((_text, index) => ({
+          embedding: [index + 1, index + 2, index + 3],
+          model: "fake-embed",
+        }));
+      },
+    };
+  }
+
+  test("store.embed forwards batch limit options", async () => {
+    const store = await createStore({
+      dbPath: freshDbPath(),
+      config: {
+        collections: {
+          docs: { path: docsDir, pattern: "**/*.md" },
+        },
+      },
+    });
+
+    const fakeLlm = createFakeEmbedLlm();
+    setDefaultLlamaCpp(createFakeTokenizer() as any);
+    store.internal.llm = fakeLlm as any;
+
+    try {
+      await store.update();
+      const result = await store.embed({
+        maxDocsPerBatch: 1,
+        maxBatchBytes: 1024 * 1024,
+      });
+
+      expect(fakeLlm.embedBatchCalls).toHaveLength(3);
+      expect(fakeLlm.embedBatchCalls.map(call => call.length)).toEqual([1, 1, 1]);
+      expect(result.docsProcessed).toBe(3);
+      expect(result.chunksEmbedded).toBe(3);
+    } finally {
+      setDefaultLlamaCpp(null);
+      await store.close();
+    }
+  });
+
+  test("store.embed rejects invalid batch limits", async () => {
+    const store = await createStore({
+      dbPath: freshDbPath(),
+      config: { collections: {} },
+    });
+
+    try {
+      await expect(store.embed({ maxDocsPerBatch: 0 })).rejects.toThrow("maxDocsPerBatch");
+      await expect(store.embed({ maxBatchBytes: 0 })).rejects.toThrow("maxBatchBytes");
+    } finally {
+      setDefaultLlamaCpp(null);
+      await store.close();
+    }
   });
 });
 
