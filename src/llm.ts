@@ -192,7 +192,7 @@ export type RerankDocument = {
 
 // HuggingFace model URIs for node-llama-cpp
 // Format: hf:<user>/<repo>/<file>
-// Override via QMD_EMBED_MODEL env var (e.g. hf:Qwen/Qwen3-Embedding-0.6B-GGUF/qwen3-embedding-0.6b-q8_0.gguf)
+// Override via QMD_EMBED_MODEL env var (e.g. hf:Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf)
 const DEFAULT_EMBED_MODEL = process.env.QMD_EMBED_MODEL ?? "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf";
 const DEFAULT_RERANK_MODEL = "hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf";
 // const DEFAULT_GENERATE_MODEL = "hf:ggml-org/Qwen3-0.6B-GGUF/Qwen3-0.6B-Q8_0.gguf";
@@ -405,6 +405,7 @@ function resolveExpandContextSize(configValue?: number): number {
 }
 
 export class LlamaCpp implements LLM {
+  private readonly _ciMode = !!process.env.CI;
   private llama: Llama | null = null;
   private embedModel: LlamaModel | null = null;
   private embedContexts: LlamaEmbeddingContext[] = [];
@@ -831,13 +832,42 @@ export class LlamaCpp implements LLM {
   // Core API methods
   // ==========================================================================
 
+  /**
+   * Truncate text to fit within the embedding model's context window.
+   * Uses the model's own tokenizer for accurate token counting, then
+   * detokenizes back to text if truncation is needed.
+   * Returns the (possibly truncated) text and whether truncation occurred.
+   */
+  private async truncateToContextSize(text: string): Promise<{ text: string; truncated: boolean }> {
+    if (!this.embedModel) return { text, truncated: false };
+
+    const maxTokens = this.embedModel.trainContextSize;
+    if (maxTokens <= 0) return { text, truncated: false };
+
+    const tokens = this.embedModel.tokenize(text);
+    if (tokens.length <= maxTokens) return { text, truncated: false };
+
+    // Leave a small margin (4 tokens) for BOS/EOS overhead
+    const safeLimit = Math.max(1, maxTokens - 4);
+    const truncatedTokens = tokens.slice(0, safeLimit);
+    const truncatedText = this.embedModel.detokenize(truncatedTokens);
+    return { text: truncatedText, truncated: true };
+  }
+
   async embed(text: string, options: EmbedOptions = {}): Promise<EmbeddingResult | null> {
     // Ping activity at start to keep models alive during this operation
     this.touchActivity();
 
     try {
       const context = await this.ensureEmbedContext();
-      const embedding = await context.getEmbeddingFor(text);
+
+      // Guard: truncate text that exceeds model context window to prevent GGML crash
+      const { text: safeText, truncated } = await this.truncateToContextSize(text);
+      if (truncated) {
+        console.warn(`⚠ Text truncated to fit embedding context (${this.embedModel?.trainContextSize} tokens)`);
+      }
+
+      const embedding = await context.getEmbeddingFor(safeText);
 
       return {
         embedding: Array.from(embedding.vector),
@@ -854,6 +884,7 @@ export class LlamaCpp implements LLM {
    * Uses Promise.all for parallel embedding - node-llama-cpp handles batching internally
    */
   async embedBatch(texts: string[]): Promise<(EmbeddingResult | null)[]> {
+    if (this._ciMode) throw new Error("LLM operations are disabled in CI (set CI=true)");
     // Ping activity at start to keep models alive during this operation
     this.touchActivity();
 
@@ -869,7 +900,11 @@ export class LlamaCpp implements LLM {
         const embeddings: ({ embedding: number[]; model: string } | null)[] = [];
         for (const text of texts) {
           try {
-            const embedding = await context.getEmbeddingFor(text);
+            const { text: safeText, truncated } = await this.truncateToContextSize(text);
+            if (truncated) {
+              console.warn(`⚠ Batch text truncated to fit embedding context (${this.embedModel?.trainContextSize} tokens)`);
+            }
+            const embedding = await context.getEmbeddingFor(safeText);
             this.touchActivity();
             embeddings.push({ embedding: Array.from(embedding.vector), model: this.embedModelUri });
           } catch (err) {
@@ -892,7 +927,11 @@ export class LlamaCpp implements LLM {
           const results: (EmbeddingResult | null)[] = [];
           for (const text of chunk) {
             try {
-              const embedding = await ctx.getEmbeddingFor(text);
+              const { text: safeText, truncated } = await this.truncateToContextSize(text);
+              if (truncated) {
+                console.warn(`⚠ Batch text truncated to fit embedding context (${this.embedModel?.trainContextSize} tokens)`);
+              }
+              const embedding = await ctx.getEmbeddingFor(safeText);
               this.touchActivity();
               results.push({ embedding: Array.from(embedding.vector), model: this.embedModelUri });
             } catch (err) {
@@ -912,6 +951,7 @@ export class LlamaCpp implements LLM {
   }
 
   async generate(prompt: string, options: GenerateOptions = {}): Promise<GenerateResult | null> {
+    if (this._ciMode) throw new Error("LLM operations are disabled in CI (set CI=true)");
     // Ping activity at start to keep models alive during this operation
     this.touchActivity();
 
@@ -971,6 +1011,7 @@ export class LlamaCpp implements LLM {
   // ==========================================================================
 
   async expandQuery(query: string, options: { context?: string, includeLexical?: boolean, intent?: string } = {}): Promise<Queryable[]> {
+    if (this._ciMode) throw new Error("LLM operations are disabled in CI (set CI=true)");
     // Ping activity at start to keep models alive during this operation
     this.touchActivity();
 
@@ -1067,6 +1108,7 @@ export class LlamaCpp implements LLM {
     documents: RerankDocument[],
     options: RerankOptions = {}
   ): Promise<RerankResult> {
+    if (this._ciMode) throw new Error("LLM operations are disabled in CI (set CI=true)");
     // Ping activity at start to keep models alive during this operation
     this.touchActivity();
 

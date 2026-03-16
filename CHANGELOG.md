@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Fixes
+
+- Sync stale `bun.lock` (`better-sqlite3` 11.x → 12.x). CI and release
+  script now use `--frozen-lockfile` to prevent recurrence. #386
+  (thanks @Mic92)
+
+## [2.0.1] - 2026-03-10
+
+### Changes
+
+- `qmd skill install` copies the packaged QMD skill into
+  `~/.claude/commands/` for one-command setup. #355 (thanks @nibzard)
+
+### Fixes
+
+- Fix Qwen3-Embedding GGUF filename case — HuggingFace filenames are
+  case-sensitive, the lowercase variant returned 404. #349 (thanks @byheaven)
+- Resolve symlinked global launcher path so `qmd` works correctly when
+  installed via `npm i -g`. #352 (thanks @nibzard)
+
 ## [2.0.0] - 2026-03-10
 
 QMD 2.0 declares a stable library API. The SDK is now the primary interface —
