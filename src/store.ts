@@ -15,7 +15,7 @@ import { openDatabase, loadSqliteVec } from "./db.js";
 import type { Database } from "./db.js";
 import picomatch from "picomatch";
 import { createHash } from "crypto";
-import { readFileSync, realpathSync, statSync, mkdirSync } from "node:fs";
+import { readFileSync, realpathSync, statSync, mkdirSync, existsSync } from "node:fs";
 // Note: node:path resolve is not imported — we export our own cross-platform resolve()
 import fastGlob from "fast-glob";
 import {
@@ -1075,6 +1075,26 @@ export type ReindexResult = {
  * Re-index a single collection by scanning the filesystem and updating the database.
  * Pure function — no console output, no db lifecycle management.
  */
+const QMDIGNORE_FILENAME = ".qmdignore";
+
+/**
+ * Parse a .qmdignore file from a directory.
+ * Format: one glob pattern per line, # comments, blank lines skipped.
+ */
+function loadQmdIgnore(dir: string): string[] {
+  const ignorePath = resolve(dir, QMDIGNORE_FILENAME);
+  if (!existsSync(ignorePath)) return [];
+  try {
+    const content = readFileSync(ignorePath, "utf-8");
+    return content
+      .split("\n")
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith("#"));
+  } catch {
+    return [];
+  }
+}
+
 export async function reindexCollection(
   store: Store,
   collectionPath: string,
@@ -1092,6 +1112,7 @@ export async function reindexCollection(
   const allIgnore = [
     ...excludeDirs.map(d => `**/${d}/**`),
     ...(options?.ignorePatterns || []),
+    ...loadQmdIgnore(collectionPath),
   ];
   const allFiles: string[] = await fastGlob(globPattern, {
     cwd: collectionPath,

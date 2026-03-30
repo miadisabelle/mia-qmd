@@ -269,13 +269,15 @@ export function updateCollectionSettings(
 export function addCollection(
   name: string,
   path: string,
-  pattern: string = "**/*.md"
+  pattern: string = "**/*.md",
+  ignore?: string[]
 ): void {
   const config = loadConfig();
 
   config.collections[name] = {
     path,
     pattern,
+    ...(ignore?.length ? { ignore } : {}),
     context: config.collections[name]?.context, // Preserve existing context
   };
 

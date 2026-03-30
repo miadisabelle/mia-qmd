@@ -1374,7 +1374,7 @@ function collectionList(): void {
   closeDb();
 }
 
-async function collectionAdd(pwd: string, globPattern: string, name?: string): Promise<void> {
+async function collectionAdd(pwd: string, globPattern: string, name?: string, ignorePatterns?: string[]): Promise<void> {
   // If name not provided, generate from pwd basename
   let collName = name;
   if (!collName) {
@@ -1404,7 +1404,7 @@ async function collectionAdd(pwd: string, globPattern: string, name?: string): P
 
   // Add to YAML config + sync to SQLite
   const { addCollection } = await import("../collections.js");
-  addCollection(collName, pwd, globPattern);
+  addCollection(collName, pwd, globPattern, ignorePatterns);
   resyncConfig();
 
   // Create the collection and index files
@@ -1463,6 +1463,30 @@ function collectionRename(oldName: string, newName: string): void {
   console.log(`  Virtual paths updated: ${c.cyan}qmd://${oldName}/${c.reset} → ${c.cyan}qmd://${newName}/${c.reset}`);
 }
 
+const QMDIGNORE_FILENAME = ".qmdignore";
+
+/**
+ * Parse a .qmdignore file from a directory.
+ * Format: one glob pattern per line, # comments, blank lines skipped.
+ */
+function loadQmdIgnore(dir: string): string[] {
+  const ignorePath = pathJoin(dir, QMDIGNORE_FILENAME);
+  if (!existsSync(ignorePath)) return [];
+  try {
+    const content = readFileSync(ignorePath, "utf-8");
+    const patterns = content
+      .split("\n")
+      .map(line => line.trim())
+      .filter(line => line && !line.startsWith("#"));
+    if (patterns.length) {
+      console.log(`${c.dim}  Using ${QMDIGNORE_FILENAME}: ${patterns.length} pattern(s)${c.reset}`);
+    }
+    return patterns;
+  } catch {
+    return [];
+  }
+}
+
 async function indexFiles(pwd?: string, globPattern: string = DEFAULT_GLOB, collectionName?: string, suppressEmbedNotice: boolean = false, ignorePatterns?: string[]): Promise<void> {
   const db = getDb();
   const resolvedPwd = pwd || getPwd();
@@ -1479,10 +1503,14 @@ async function indexFiles(pwd?: string, globPattern: string = DEFAULT_GLOB, coll
 
   console.log(`Collection: ${resolvedPwd} (${globPattern})`);
 
+  // Load .qmdignore from collection root
+  const fileIgnore = loadQmdIgnore(resolvedPwd);
+
   progress.indeterminate();
   const allIgnore = [
     ...excludeDirs.map(d => `**/${d}/**`),
     ...(ignorePatterns || []),
+    ...fileIgnore,
   ];
   const allFiles: string[] = await fastGlob(globPattern, {
     cwd: resolvedPwd,
@@ -2356,6 +2384,7 @@ function parseCLI() {
       // Collection options
       name: { type: "string" },  // collection name
       mask: { type: "string" },  // glob pattern
+      ignore: { type: "string", multiple: true },  // glob patterns to exclude
       // Embed options
       force: { type: "boolean", short: "f" },
       "max-docs-per-batch": { type: "string" },
@@ -2817,8 +2846,9 @@ if (isMain) {
           const resolvedPwd = pwd === '.' ? getPwd() : getRealPath(resolve(pwd));
           const globPattern = cli.values.mask as string || DEFAULT_GLOB;
           const name = cli.values.name as string | undefined;
+          const ignore = cli.values.ignore as string[] | undefined;
 
-          await collectionAdd(resolvedPwd, globPattern, name);
+          await collectionAdd(resolvedPwd, globPattern, name, ignore);
           break;
         }
 
