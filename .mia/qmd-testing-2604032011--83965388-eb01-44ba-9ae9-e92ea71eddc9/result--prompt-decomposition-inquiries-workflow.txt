@@ -1,0 +1,53 @@
+qmd://rispecs/repos/jgwill/src/mia-code/rispecs/inquiry-routing-rispecs.md:10 #774d34
+Title: miaco Inquiry-Routing Integration Specification
+Score:  92%
+
+@@ -9,4 @@ (8 before, 110 after)
+
+miaco enables developers to transform any prompt decomposition into routed inquiries — structured questions classified by Medicine Wheel direction that flow to appropriate knowledge channels (QMD local semantic search, deep-search academic, workspace-scan). Users create knowledge-grounded action plans rather than acting on assumptions.
+
+## Structural Tension Analysis
+
+
+qmd://rispecs/repos/jgwill/src-pr-355/mcp-pde/rispecs/pde-overview-rispec.md:2 #f6ed35
+Title: PDE-MCP Overview Specification
+Score:  92%
+
+@@ -1,4 @@ (0 before, 144 after)
+# PDE-MCP Overview Specification
+> Prompt Decomposition Engine as Model Context Protocol Server
+
+**Version**: 1.0.0
+
+
+qmd://rispecs/repos/avadisabelle/ava-langgraphjs/rispecs/01-inquiry-routing-engine-spec.md:5 #cba491
+Title: 01 — Inquiry Routing Engine
+Score:  92%
+
+@@ -4,4 @@ (3 before, 146 after)
+> Path: `libs/inquiry-routing-engine/`
+> Peer dependencies: `ava-langchain-prompt-decomposition >=0.1.0`, `ava-langchain-inquiry-routing >=0.1.0`
+
+## Desired Outcome
+
+
+qmd://rispecs/repos/jgwill/src/mia-code/rispecs/sync/miadi-code/pde/spec.md:15 #272dcc
+Title: RISE Specification: PDE (Prompt Decomposition Engine)
+Score:  92%
+
+@@ -14,4 @@ (13 before, 237 after)
+
+The PDE module implements a 5-layer decomposition pipeline based on academic research from the PDE Generalization literature survey. It transforms complex, multi-intent prompts into structured, executable workflows.
+
+### File Structure
+
+
+qmd://rispecs/repos/jgwill/src-pr-355/mia-code/rispecs/sync/miadi-code/pde/spec.md:15 #272dcc
+Title: RISE Specification: PDE (Prompt Decomposition Engine)
+Score:  92%
+
+@@ -14,4 @@ (13 before, 237 after)
+
+The PDE module implements a 5-layer decomposition pipeline based on academic research from the PDE Generalization literature survey. It transforms complex, multi-intent prompts into structured, executable workflows.
+
+### File Structure
