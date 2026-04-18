@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
+# Rebuild the llms-txt collection (root-level llms-*.{md,txt} files).
 set -euo pipefail
-# Rebuild the llms-txt collection (root-level files only)
-bun src/cli/qmd.ts collection remove llms-txt 2>/dev/null || true
-bun src/cli/qmd.ts collection add /workspace/repos/jgwill/llms-txt --name llms-txt --mask 'llms-*.{md,txt}'
-bun src/cli/qmd.ts embed
+source "$(dirname "$0")/_qmd-lib.sh"
+
+qmd_rebuild "llms-txt" "/workspace/repos/jgwill/llms-txt" 'llms-*.{md,txt}'

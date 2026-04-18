@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
+# Rebuild the IAIP artefacts collection.
+# Ignore patterns read from /src/IAIP/prototypes/artefacts/.qmdignore (if present).
 set -euo pipefail
-# Rebuild the IAIP artefacts collection
-# Ignore patterns are read from /src/IAIP/prototypes/artefacts/.qmdignore
-QMD_COLLECTION_PATH="/src/IAIP/prototypes/artefacts"
-OMD_COLLECTION_NAME="iaip-artefacts-md"
-QMD_MASK='*.md'
-QMD_IGNORE_PATH="/src/IAIP/prototypes/artefacts/.qmdignore"
-if [ ! -e "/src/IAIP/prototypes/artefacts/.qmdignore" ];then
-    echo "__.md" 
-fi
+source "$(dirname "$0")/_qmd-lib.sh"
 
-bun src/cli/qmd.ts collection remove iaip-artefacts-md 2>/dev/null || true
-bun src/cli/qmd.ts collection add $QMD_COLLECTION_PATH --name $OMD_COLLECTION_NAME --mask "'"$QMD_MASK"'"
-bun src/cli/qmd.ts embed
+qmd_rebuild \
+    "iaip-artefacts-md" \
+    "/src/IAIP/prototypes/artefacts" \
+    '**/*.md'

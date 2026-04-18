@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
+# Rebuild the GUILLAUME-md collection (every GUILLAUME.md under /workspace).
 set -euo pipefail
-# Rebuild the GUILLAUME-md collection
-# Ignore patterns are read from /workspace/.qmdignore
-bun src/cli/qmd.ts collection remove GUILLAUME-md 2>/dev/null || true
-bun src/cli/qmd.ts collection add /workspace --name GUILLAUME-md --mask '**/GUILLAUME.md'
-bun src/cli/qmd.ts embed
+source "$(dirname "$0")/_qmd-lib.sh"
+
+qmd_rebuild "GUILLAUME-md" "/workspace" '**/GUILLAUME.md'

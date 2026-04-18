@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
+# Rebuild the CLAUDE-md collection (every CLAUDE.md under /workspace).
 set -euo pipefail
-# Rebuild the CLAUDE-md collection
-# Ignore patterns are read from /workspace/.qmdignore
-bun src/cli/qmd.ts collection remove CLAUDE-md 2>/dev/null || true
-bun src/cli/qmd.ts collection add /workspace --name CLAUDE-md --mask '**/CLAUDE.md'
-bun src/cli/qmd.ts embed
+source "$(dirname "$0")/_qmd-lib.sh"
+
+qmd_rebuild "CLAUDE-md" "/workspace" '**/CLAUDE.md'
