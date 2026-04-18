@@ -17,8 +17,24 @@ COPY . .
 #RUN npm install
 WORKDIR /workspace/repos/miadisabelle/mia-qmd/scripts
 RUN ./40-bun-install.sh && bun --version
-#RUN ./41-sqlite-dev-install.sh
-RUN npm install -g @tobilu/qmd
+
+# Native build prerequisites for @tobilu/qmd (better-sqlite3 + sqlite-vec).
+# Without these, npm falls back to a prebuilt .node compiled for whatever
+# Node version the prebuild was made against — which then fails to load at
+# runtime with "NODE_MODULE_VERSION N vs M" when the container Node is newer.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+        build-essential python3 libsqlite3-dev ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# --build-from-source forces better-sqlite3 to compile against THIS
+# container's Node ABI, eliminating the prebuild/runtime ABI mismatch.
+RUN npm install -g @tobilu/qmd --build-from-source \
+ && cd /usr/lib/node_modules/@tobilu/qmd \
+ && npm rebuild better-sqlite3 --build-from-source \
+ && node -e "require('better-sqlite3')" \
+ && qmd --version || true
+
 #RUN ./42-qmd-install.sh
 #RUN ./43-qmd-dev-setup.sh
 WORKDIR /workspace/repos/miadisabelle/mia-qmd
