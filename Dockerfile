@@ -5,11 +5,18 @@ FROM jgwill/ubuntu:22-py3.11-node
 
 WORKDIR /app
 
+# Install Bun system-wide. The bun.sh installer only edits ~/.bashrc,
+# which Docker's non-interactive RUN shell does NOT source — so without
+# BUN_INSTALL=/usr/local + ENV PATH, later RUN steps and runtime shells
+# hit "bash: bun: command not found".
+ENV BUN_INSTALL="/usr/local"
+ENV PATH="/usr/local/bin:${PATH}"
+
 WORKDIR /workspace/repos/miadisabelle/mia-qmd
 COPY . .
 #RUN npm install
 WORKDIR /workspace/repos/miadisabelle/mia-qmd/scripts
-RUN ./40-bun-install.sh
+RUN ./40-bun-install.sh && bun --version
 #RUN ./41-sqlite-dev-install.sh
 RUN npm install -g @tobilu/qmd
 #RUN ./42-qmd-install.sh
@@ -83,6 +90,8 @@ RUN echo "tushell ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 RUN chown -R mia:bears .
 RUN chmod -R g+rw .
+# bun already installed system-wide above at /usr/local/bin/bun —
+# no per-user reinstall needed; PATH is set via ENV for all users.
 
 #USER mia
 
