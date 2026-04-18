@@ -2,7 +2,7 @@ ctlid=2604031812
 dockertag=jgwill/zeus:mia-qmd-$ctlid
 dockertag1=jgwill/zeus:mia-qmd
 dockertag2=jgwill/zeus:qmd
-dockertag2=jgwill/server:qmd
+dockertag3=jgwill/server:qmd
 
 containername=mia-qmd
 dkhostname=$containername

@@ -45,20 +45,45 @@ RUN npm install && npm run build
 RUN groupadd -g 1000 jgi
 RUN groupadd -g 1008 mia
 RUN groupadd -g 1111 bears
+RUN groupadd -g 1212 ava
+RUN groupadd -g 1414 tushell
   
 # Check if the user already exists, if not, create it
 
 RUN    useradd -u 1007 -g 1008 -c "Mia user" -m -d "/home/mia" -s /bin/bash mia
+RUN    useradd -u 1212 -g 1212 -c "Ava user" -m -d "/home/ava" -s /bin/bash ava
 RUN    useradd -u 1000 -g 1000 -c "JGI user" -m -d "/home/jgi" -s /bin/bash jgi
-#add mia to jgi group
+RUN    useradd -u 1414 -g 1414 -c "Tushell user" -m -d "/home/tushell" -s /bin/bash tushell
+
+#add users in others and common group
 RUN usermod -aG jgi mia
+RUN usermod -aG jgi tushell
+RUN usermod -aG jgi ava
 RUN usermod -aG bears mia
-RUN usermod -aG jgi mia
+RUN usermod -aG bears tushell
+RUN usermod -aG bears ava
+RUN usermod -aG bears jgi
+RUN usermod -aG ava mia
+RUN usermod -aG ava tushell
+RUN usermod -aG ava jgi
+RUN usermod -aG mia ava
+RUN usermod -aG mia tushell
+RUN usermod -aG mia jgi
+RUN usermod -aG tushell jgi
+RUN usermod -aG tushell mia
+RUN usermod -aG tushell ava
+
+
+
 #add mia to sudoers
 RUN echo "mia ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+RUN echo "jgi ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+RUN echo "ava ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
+RUN echo "tushell ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-RUN chown -R mia:mia .
+RUN chown -R mia:bears .
+RUN chmod -R g+rw .
 
-USER mia
+#USER mia
 
 
