@@ -5,39 +5,13 @@ FROM jgwill/ubuntu:22-py3.11-node
 
 WORKDIR /app
 
-# Install Bun system-wide. The bun.sh installer only edits ~/.bashrc,
-# which Docker's non-interactive RUN shell does NOT source — so without
-# BUN_INSTALL=/usr/local + ENV PATH, later RUN steps and runtime shells
-# hit "bash: bun: command not found".
-ENV BUN_INSTALL="/usr/local"
-ENV PATH="/usr/local/bin:${PATH}"
+# Bun + @tobilu/qmd (with --build-from-source-compiled better-sqlite3) and the
+# native build toolchain (build-essential / python3 / libsqlite3-dev) all come
+# from the base image jgwill/ubuntu:22-py3.11-node — keep them baked there so
+# this build stays fast and cacheable.
 
 WORKDIR /workspace/repos/miadisabelle/mia-qmd
 COPY . .
-#RUN npm install
-WORKDIR /workspace/repos/miadisabelle/mia-qmd/scripts
-RUN ./40-bun-install.sh && bun --version
-
-# Native build prerequisites for @tobilu/qmd (better-sqlite3 + sqlite-vec).
-# Without these, npm falls back to a prebuilt .node compiled for whatever
-# Node version the prebuild was made against — which then fails to load at
-# runtime with "NODE_MODULE_VERSION N vs M" when the container Node is newer.
-RUN apt-get update \
- && apt-get install -y --no-install-recommends \
-        build-essential python3 libsqlite3-dev ca-certificates \
- && rm -rf /var/lib/apt/lists/*
-
-# --build-from-source forces better-sqlite3 to compile against THIS
-# container's Node ABI, eliminating the prebuild/runtime ABI mismatch.
-RUN npm install -g @tobilu/qmd --build-from-source \
- && cd /usr/lib/node_modules/@tobilu/qmd \
- && npm rebuild better-sqlite3 --build-from-source \
- && node -e "require('better-sqlite3')" \
- && qmd --version || true
-
-#RUN ./42-qmd-install.sh
-#RUN ./43-qmd-dev-setup.sh
-WORKDIR /workspace/repos/miadisabelle/mia-qmd
 RUN npm install && npm run build
 #RUN apt update && apt install nvim -y
 
