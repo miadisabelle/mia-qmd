@@ -26,6 +26,23 @@ qmd_queue() {
     _QMD_MASKS+=("$3")
 }
 
+# qmd_ensure_ignore PATH PATTERN [PATTERN...]
+# Append missing patterns to <PATH>/.qmdignore (create the file if needed).
+# Idempotent — safe to run on every rebuild. Warns and no-ops if PATH missing.
+qmd_ensure_ignore() {
+    local path="$1"; shift
+    local ignore_file="$path/.qmdignore"
+    local pattern
+    if [ ! -d "$path" ]; then
+        echo "⚠️  qmd_ensure_ignore: $path does not exist — skipping" >&2
+        return 0
+    fi
+    [ -e "$ignore_file" ] || : > "$ignore_file"
+    for pattern in "$@"; do
+        grep -qxF "$pattern" "$ignore_file" 2>/dev/null || echo "$pattern" >> "$ignore_file"
+    done
+}
+
 # qmd_add NAME PATH MASK  — remove-then-add a single collection (no embed)
 qmd_add() {
     local name="$1" path="$2" mask="$3"
