@@ -78,10 +78,15 @@ RUN echo "jgi ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 RUN echo "ava ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 RUN echo "tushell ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
+WORKDIR /workspace/repos/miadisabelle/mia-qmd
 RUN chown -R mia:bears .
 RUN chmod -R g+rw .
 # bun already installed system-wide above at /usr/local/bin/bun —
 # no per-user reinstall needed; PATH is set via ENV for all users.
+
+# Terminal WORKDIR — REQUIRED. User wrappers (docker run ...) land here by
+# default; removing this line is not acceptable even if it looks redundant.
+WORKDIR /workspace/repos/miadisabelle/mia-qmd
 
 #USER mia
 

@@ -32,6 +32,7 @@ _srcroot_realpath="$(cd $srcroot && realpath .)"
 dkextra=" --memory=$RAM \
     -v /opt:/opt \
     -v $_srcroot_realpath:/src \
+    -v /a/src:/a/src \
     -v $_creative_repo_root_realpath:$creative_repo_root "
 
 
