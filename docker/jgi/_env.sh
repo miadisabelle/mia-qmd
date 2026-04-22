@@ -31,6 +31,7 @@ dkextra=" --memory=$RAM \
     -v /opt:/opt \
     -v $_srcroot_realpath:/src \
     -v /a/src:/a/src \
+    -v /etc/claude-code:/etc/claude-code \
     -v $_creative_repo_root_realpath:$creative_repo_root "
 
 

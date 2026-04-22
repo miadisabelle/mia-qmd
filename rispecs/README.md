@@ -37,6 +37,7 @@ Rich knowledge exists across the workspace topology without a unified discovery 
 | 01 | [01-search-engine-core.spec.md](./01-search-engine-core.spec.md) | Hybrid search architecture: BM25 + vector + LLM reranking |
 | 02 | [02-mcp-server-integration.spec.md](./02-mcp-server-integration.spec.md) | MCP tools for companion agent integration |
 | 03 | [03-workspace-collection-model.spec.md](./03-workspace-collection-model.spec.md) | Collection topology mapping the Mia Platform workspace |
+| 04 | [04-multi-persona-federation.spec.md](./04-multi-persona-federation.spec.md) | Per-persona containerized indexes addressable as a routing ontology |
 
 ---
 
@@ -46,9 +47,12 @@ Rich knowledge exists across the workspace topology without a unified discovery 
 mia-qmd (THIS — search/indexing layer)
   ├── upstream: @tobilu/qmd v2.0.0 (fork base)
   │     └── SQLite FTS5 + sqlite-vec + node-llama-cpp
+  ├── federation: Multi-Persona (spec 04)
+  │     ├── jgi-qmd / mia-qmd / ava-qmd / tushell-qmd containers
+  │     └── scripts/fn_qmd_client.sh — query router (bash)
   ├── consumed by: Mia Platform web shell (jgwill/workspace rispecs/)
   │     └── Companion agents use MCP tools for document retrieval
-  ├── indexes: workspace topology
+  ├── indexes: workspace topology (per-persona curation)
   │     ├── rispecs/ across all repos
   │     ├── llms/ knowledge base
   │     ├── .pde/ decompositions
