@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
-# Rebuild the /workspace/repos/miadisabelle/mia-awesome-copilot/agents RISE framework specs collection.
-# Ignore patterns read from /workspace/repos/miadisabelle/mia-awesome-copilot/agents/.qmdignore (if present).
+# Rebuild the /workspace/repos/miadisabelle/mia-awesome-copilot/plugins/SKILLS markdown files collection.
 set -euo pipefail
 source "$(dirname "$0")/_qmd-lib.sh"
 
 qmd_rebuild \
-    "mia-awesome-copilot-agents-md" \
-    "/workspace/repos/miadisabelle/mia-awesome-copilot/agents" \
-    '**/*.md'
+    "mia-awesome-copilot-plugin-skills-md" \
+    "/workspace/repos/miadisabelle/mia-awesome-copilot/plugins" \
+    '**/skills/**/*.md'
