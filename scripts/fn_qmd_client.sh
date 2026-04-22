@@ -89,17 +89,17 @@ _qmd_pick_loose() {
     return 0
 }
 
-# Resolve persona from first arg if valid, else use $QMD_PERSONA.
-# Echoes: "<persona> <remaining-args-shell-quoted>"
-_qmd_resolve() {
-    local persona
-    if [ $# -gt 0 ] && _qmd_is_persona "$1"; then
-        persona="$1"; shift
-    else
-        persona="$QMD_PERSONA"
-    fi
-    printf '%s\n' "$persona"
-    printf '%s\0' "$@"
+# True when $1 is a help flag (-h / --help / help).
+_qmd_is_help_flag() {
+    case "${1:-}" in -h|--help|help) return 0 ;; *) return 1 ;; esac
+}
+
+# Print a function's help block to stdout and return 0.
+# _qmd_show_help <fn_name> <usage> <desc>
+_qmd_show_help() {
+    printf '%s\n' "$2"
+    printf '  %s\n' "$3"
+    printf '  personas: %s (default: %s)\n' "$QMD_PERSONAS" "$QMD_PERSONA"
 }
 
 _qmd_container_running() {
@@ -126,8 +126,37 @@ _qmd_run() {
 
 # ---- public functions -------------------------------------------------------
 
+# Master help: list every public function with its one-line usage.
+qmd_help() {
+    cat <<EOF
+QMD multi-persona federation client — bash functions
+
+  qmd_help                              Show this message.
+  qmd_personas                          List personas and container up/down status.
+  qmd_status       [persona]            Index health for a persona.
+  qmd_collections  [persona]            List collections indexed in persona's QMD.
+  qmd_ls           [persona] [path]     List collections / files in a persona.
+  qmd_search       [persona] <query>    BM25 keyword search.
+  qmd_query        [persona] <query>    Hybrid search (expansion + rerank).
+  qmd_vsearch      [persona] <query>    Vector similarity only.
+  qmd_get          [persona] <file|#id> Fetch one document.
+  qmd_multi_get    [persona] <pattern>  Batch fetch by glob or CSV.
+  qmd_exec         [persona] <cmd...>   Run arbitrary qmd subcommand.
+  qmd_all          <cmd> [args...]      Fan out across every running persona.
+
+Every function accepts --help for its own usage.
+
+Personas: $QMD_PERSONAS   (default: $QMD_PERSONA)
+Env:      QMD_PERSONA, QMD_PERSONAS, QMD_DOCKER, QMD_CONTAINER_SUFFIX
+Exit:     0 ok | 2 routing error | 3 container not running | 64 usage
+EOF
+}
+
 # List known personas and container status.
 qmd_personas() {
+    _qmd_is_help_flag "${1:-}" && { _qmd_show_help qmd_personas \
+        "qmd_personas" \
+        "List every persona and whether its container is running."; return 0; }
     local p name status
     for p in $QMD_PERSONAS; do
         name="$(_qmd_container "$p")"
@@ -140,6 +169,12 @@ qmd_personas() {
 #   qmd_exec mia status
 #   qmd_exec ava collection list
 qmd_exec() {
+    if [ $# -eq 0 ] || _qmd_is_help_flag "$1"; then
+        _qmd_show_help qmd_exec \
+            "qmd_exec [persona] <qmd-subcommand> [args...]" \
+            "Run any qmd subcommand inside a persona's container."
+        [ $# -eq 0 ] && return 64 || return 0
+    fi
     local persona="$1"; shift || true
     if ! _qmd_is_persona "$persona"; then
         # allow `qmd_exec status` to use default persona
@@ -151,6 +186,12 @@ qmd_exec() {
 
 # qmd_search [persona] <query...>  — BM25 keyword search
 qmd_search() {
+    if [ $# -eq 0 ] || _qmd_is_help_flag "$1"; then
+        _qmd_show_help qmd_search \
+            "qmd_search [persona] <query...>" \
+            "BM25 keyword search (fast, no LLM)."
+        [ $# -eq 0 ] && return 64 || return 0
+    fi
     _qmd_pick_query "$@" || return $?
     set -- "${_QMD_REST[@]}"
     _qmd_run "$_QMD_PICKED" search "$@"
@@ -158,6 +199,12 @@ qmd_search() {
 
 # qmd_query [persona] <query...>   — Hybrid search w/ expansion + rerank
 qmd_query() {
+    if [ $# -eq 0 ] || _qmd_is_help_flag "$1"; then
+        _qmd_show_help qmd_query \
+            "qmd_query [persona] <query...>" \
+            "Hybrid search with query expansion and LLM reranking (recommended)."
+        [ $# -eq 0 ] && return 64 || return 0
+    fi
     _qmd_pick_query "$@" || return $?
     set -- "${_QMD_REST[@]}"
     _qmd_run "$_QMD_PICKED" query "$@"
@@ -165,6 +212,12 @@ qmd_query() {
 
 # qmd_vsearch [persona] <query...> — Vector similarity only
 qmd_vsearch() {
+    if [ $# -eq 0 ] || _qmd_is_help_flag "$1"; then
+        _qmd_show_help qmd_vsearch \
+            "qmd_vsearch [persona] <query...>" \
+            "Vector similarity search (no reranking)."
+        [ $# -eq 0 ] && return 64 || return 0
+    fi
     _qmd_pick_query "$@" || return $?
     set -- "${_QMD_REST[@]}"
     _qmd_run "$_QMD_PICKED" vsearch "$@"
@@ -172,6 +225,12 @@ qmd_vsearch() {
 
 # qmd_get [persona] <file|#docid>  — Fetch single document
 qmd_get() {
+    if [ $# -eq 0 ] || _qmd_is_help_flag "$1"; then
+        _qmd_show_help qmd_get \
+            "qmd_get [persona] <file|#docid>" \
+            "Fetch one document by path or docid."
+        [ $# -eq 0 ] && return 64 || return 0
+    fi
     _qmd_pick_query "$@" || return $?
     set -- "${_QMD_REST[@]}"
     _qmd_run "$_QMD_PICKED" get "$@"
@@ -179,6 +238,12 @@ qmd_get() {
 
 # qmd_multi_get [persona] <pattern|csv>
 qmd_multi_get() {
+    if [ $# -eq 0 ] || _qmd_is_help_flag "$1"; then
+        _qmd_show_help qmd_multi_get \
+            "qmd_multi_get [persona] <pattern|csv>" \
+            "Batch fetch via glob or comma-separated list."
+        [ $# -eq 0 ] && return 64 || return 0
+    fi
     _qmd_pick_query "$@" || return $?
     set -- "${_QMD_REST[@]}"
     _qmd_run "$_QMD_PICKED" multi-get "$@"
@@ -186,6 +251,9 @@ qmd_multi_get() {
 
 # qmd_ls [persona] [collection[/path]]
 qmd_ls() {
+    _qmd_is_help_flag "${1:-}" && { _qmd_show_help qmd_ls \
+        "qmd_ls [persona] [collection[/path]]" \
+        "List collections or files within a persona's index."; return 0; }
     _qmd_pick_loose "$@" || return $?
     set -- "${_QMD_REST[@]}"
     _qmd_run "$_QMD_PICKED" ls "$@"
@@ -193,6 +261,9 @@ qmd_ls() {
 
 # qmd_status [persona]
 qmd_status() {
+    _qmd_is_help_flag "${1:-}" && { _qmd_show_help qmd_status \
+        "qmd_status [persona]" \
+        "Show index health and collection summary for a persona."; return 0; }
     _qmd_pick_strict "$@" || return $?
     set -- "${_QMD_REST[@]}"
     _qmd_run "$_QMD_PICKED" status "$@"
@@ -200,6 +271,9 @@ qmd_status() {
 
 # qmd_collections [persona]  — list collections indexed in persona's QMD
 qmd_collections() {
+    _qmd_is_help_flag "${1:-}" && { _qmd_show_help qmd_collections \
+        "qmd_collections [persona]" \
+        "List collections registered inside a persona's QMD."; return 0; }
     _qmd_pick_strict "$@" || return $?
     set -- "${_QMD_REST[@]}"
     _qmd_run "$_QMD_PICKED" collection list "$@"
@@ -208,6 +282,12 @@ qmd_collections() {
 # Fan-out: run the same search across every running persona, labeled.
 # qmd_all <subcommand> <args...>   e.g. qmd_all search "ceremony"
 qmd_all() {
+    if [ $# -eq 0 ] || _qmd_is_help_flag "$1"; then
+        _qmd_show_help qmd_all \
+            "qmd_all <qmd-subcommand> [args...]" \
+            "Run the same qmd subcommand across every running persona, labeled."
+        [ $# -eq 0 ] && return 64 || return 0
+    fi
     local sub="$1"; shift
     local p
     for p in $QMD_PERSONAS; do
