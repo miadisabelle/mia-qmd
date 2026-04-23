@@ -38,6 +38,8 @@ Rich knowledge exists across the workspace topology without a unified discovery 
 | 02 | [02-mcp-server-integration.spec.md](./02-mcp-server-integration.spec.md) | MCP tools for companion agent integration |
 | 03 | [03-workspace-collection-model.spec.md](./03-workspace-collection-model.spec.md) | Collection topology mapping the Mia Platform workspace |
 | 04 | [04-multi-persona-federation.spec.md](./04-multi-persona-federation.spec.md) | Per-persona containerized indexes addressable as a routing ontology |
+| 05 | [05-qmd-promotion-lifecycle.spec.md](./05-qmd-promotion-lifecycle.spec.md) | Promotion path from research provenance into specs, wiki knowledge, and retrievable indexes |
+| 06 | [06-wiki-knowledge-handling.spec.md](./06-wiki-knowledge-handling.spec.md) | Concept-first markdown conventions for semantic retrieval |
 
 ---
 
@@ -50,6 +52,12 @@ mia-qmd (THIS — search/indexing layer)
   ├── federation: Multi-Persona (spec 04)
   │     ├── jgi-qmd / mia-qmd / ava-qmd / tushell-qmd containers
   │     └── scripts/fn_qmd_client.sh — query router (bash)
+  ├── promotion: Wave 2 lifecycle (spec 05)
+  │     ├── research provenance stays upstream
+  │     ├── rispecs/ hold normative decisions
+  │     └── wiki-style knowledge becomes retrievable through QMD
+  ├── knowledge handling: Wiki-style concept pages (spec 06)
+  │     └── compact markdown for semantic retrieval
   ├── consumed by: Mia Platform web shell (jgwill/workspace rispecs/)
   │     └── Companion agents use MCP tools for document retrieval
   ├── indexes: workspace topology (per-persona curation)

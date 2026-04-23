@@ -1,6 +1,6 @@
 # 04 — Multi-Persona QMD Federation
 
-> Each companion (Mia 🧠, Miette 🌸, Ava 💕, Tushell 🌊, JGI) operates an isolated QMD index inside their own containerized workspace. A bash client turns these private indexes into addressable endpoints the orchestrator — or any agent — can query by persona name. The federation is what transforms a single search engine into a *routing ontology*.
+> QMD is the semantic retrieval layer inside each persona's container. `scripts/fn_qmd_client.sh` is the federation router that turns those isolated indexes into addressable persona endpoints. The federation is what transforms a single search engine into a *routing ontology*.
 
 ---
 
@@ -14,13 +14,14 @@ Any consumer — human, companion agent, or higher-order orchestrator — can ad
 - The host machine has GPU instability that destabilizes long-running QMD processes.
 - Four docker user contexts exist (`docker/jgi/`, `docker/mia/`, `docker/ava/`, `docker/tushell/`), each producing a container named `<persona>-qmd` from the root `Dockerfile` which creates the four system users.
 - Each persona has curated a distinct indexing recipe via `scripts/src-*.sh` (e.g., `src-mia-code-rispecs.sh`, `src-miadi.sh`, `src-iaip-inquiries.sh`, `src-tushellplatform.sh`, `pde-src-miadi.sh`). Running these inside each container yields four non-overlapping index identities.
-- There is no unified client that lets a consumer say "search Ava" vs "search Mia" — each persona must be queried through manual `docker exec` invocations.
+- `scripts/fn_qmd_client.sh` already exposes a unified bash routing surface (`qmd_query`, `qmd_search`, `qmd_get`, `qmd_all`, ...), so consumers no longer need to hand-write `docker exec` invocations.
+- The implementation exists, but the ontology around routing, promotion, and wiki-style knowledge flow still needs explicit specification so future consumers do not treat the router as an ad hoc helper.
 
 ## Structural Tension
 
-Isolated persona indexes exist and are rich with distinct knowledge, but they are not *addressable as a set*. The tension between their individual curation (each persona has chosen what belongs in their index) and the natural desire for orchestrated multi-perspective inquiry drives the federation.
+Isolated persona indexes exist and are now addressable through a working router, but the meaning of that routing is still implicit. The tension is no longer "can we reach Mia vs Ava?" but "what does it *mean* to route a semantic retrieval question to one persona rather than another, and where does that router stop?" The federation resolves this by making persona selection intentional while keeping QMD itself as the retrieval engine.
 
-When a consumer asks a structural question, Mia's index should answer. When they ask a ceremonial question, Ava's should. When they ask for distilled wisdom, Tushell's should. Without a routing layer, the consumer must know the container topology; with one, they only need to know the persona.
+When a consumer asks a structural question, Mia's index should answer. When they ask a ceremonial question, Ava's should. When they ask for distilled wisdom, Tushell's should. Without treating the routing layer as first-class infrastructure, the consumer still ends up reasoning about container topology instead of persona intent.
 
 ---
 
@@ -59,7 +60,15 @@ When a consumer asks a structural question, Mia's index should answer. When they
          (~/.cache/qmd/index.sqlite per user home)
 ```
 
-Each box is a docker container running as its persona's user. The bash client is the *only* surface a consumer touches; persona selection is positional (`qmd_search mia "..."`), environmental (`QMD_PERSONA=ava`), or fan-out (`qmd_all`).
+Each box is a docker container running as its persona's user. The bash client is the consumer-facing router; persona selection is positional (`qmd_query mia "..."`), environmental (`QMD_PERSONA=ava`), or fan-out (`qmd_all`). QMD itself remains the retrieval engine inside the container — the router does not alter scoring, context, or result content.
+
+### Layering
+
+| Layer | Responsibility | Reference |
+|------|----------------|-----------|
+| Semantic retrieval | Search, reranking, retrieval, document access | `qmd query`, `qmd search`, `qmd get` |
+| Federation routing | Persona resolution, container dispatch, fan-out labeling | `scripts/fn_qmd_client.sh` |
+| Orchestration | Multi-persona reconciliation, council logic, prompt strategy | external consumer / orchestrator |
 
 ---
 
@@ -88,6 +97,8 @@ The federation exposes these functions; each resolves to a `qmd` invocation insi
 | `qmd_personas` | *(local)* | List personas and container up/down status |
 | `qmd_exec` | `qmd <any>` | Escape hatch for uncovered subcommands |
 | `qmd_all` | `qmd <sub>` ×N | Fan out one subcommand across all running personas |
+
+`qmd_query` is the canonical semantic retrieval entrypoint for the federation. The other functions either narrow the retrieval mode (`search`, `vsearch`), perform exact recall (`get`, `multi-get`, `ls`), or support orchestration/diagnostics (`status`, `collections`, `all`, `exec`).
 
 ### Persona Resolution Modes
 
@@ -158,6 +169,8 @@ Because each persona indexes via their own `scripts/src-*.sh`, the *choice of wh
 - Extends `01-search-engine-core` — each persona runs the full hybrid search stack; the federation does not modify retrieval, only addresses it.
 - Complements `02-mcp-server-integration` — a future MCP tool layer can expose each persona as a named MCP resource (`mcp://qmd/mia`, `mcp://qmd/ava`, …), with this bash client as the reference implementation of routing semantics.
 - Specializes `03-workspace-collection-model` — each persona curates their own collections via `scripts/src-*.sh`, so the workspace collection model applies *per-persona*, not globally. Collections with the same name in different personas are separate knowledge bodies.
+- Feeds `05-qmd-promotion-lifecycle` — promoted documents become retrievable through this router, but promotion itself happens in authored markdown, not in the router.
+- Feeds `06-wiki-knowledge-handling` — wiki-style concept pages are part of what the router addresses, not a new routing substrate.
 
 ---
 

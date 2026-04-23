@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Changes
+
+- Add wave-2 rispec drafts for QMD promotion lifecycle and wiki-style knowledge
+  handling, and align multi-persona federation spec with the existing
+  `fn_qmd_client.sh` router as the federation surface.
+
 ### Fixes
 
 - Sync stale `bun.lock` (`better-sqlite3` 11.x → 12.x). CI and release
