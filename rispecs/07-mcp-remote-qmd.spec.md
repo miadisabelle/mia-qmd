@@ -66,14 +66,46 @@ Identity is preserved by **`tools/list` re-publish**, not by sharing Zod schemas
 
 ```
 src/mcp-remote/
-├── index.ts              # CLI entry: `qmd mcp-remote`
-├── transport.ts          # SSHTransport: implements MCP Transport interface
-├── proxy-server.ts       # Forwards initialize/tools/list/tools/call through transport
-├── collection-injector.ts # Rewrites tool calls to inject default `-c` flags
-└── config.ts             # Env + flag resolution (host, binary path, collections)
+├── index.ts              # CLI entry wired into src/cli/qmd.ts as `qmd mcp-remote`
+├── proxy.ts              # Pairs SDK Server (agent-facing) with SDK Client (ssh-facing)
+├── injector.ts           # Wire-level rewrite of `tools/call` params for `query`
+├── enrich-initialize.ts  # Appends provenance footer to initialize.instructions
+└── config.ts             # Env + flag resolution (host, remote binary path, collections)
 ```
 
-Language: **TypeScript**, same `@modelcontextprotocol/sdk` version, same `node-llama-cpp`-free dependency budget (the proxy never embeds — it just forwards).
+Language: **TypeScript**, runtime **Bun** (per project `CLAUDE.md`), same `@modelcontextprotocol/sdk` (^1.25.1) as the local server. No `node-llama-cpp`, no `better-sqlite3`, no `sqlite-vec` — the proxy never embeds, indexes, or stores. It only forwards.
+
+Implementation skeleton (illustrative — the SDK calls are exact, the surrounding logic is the deliverable):
+
+```ts
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+
+const upstream = new Client({ name: "qmd-remote-proxy", version: "..." });
+await upstream.connect(new StdioClientTransport({
+  command: "ssh",
+  args: ["-T", "-o", "BatchMode=yes", "-o", "ServerAliveInterval=30", host, "--", remoteBin, "mcp"],
+}));
+
+const downstream = new Server({ name: "qmd-remote", version: "..." }, { capabilities: { tools: {}, resources: {} } });
+
+// Forward tools/list verbatim
+downstream.setRequestHandler(ListToolsRequestSchema, async () => upstream.request({ method: "tools/list" }, ListToolsResultSchema));
+
+// Forward tools/call with optional injection on `query`
+downstream.setRequestHandler(CallToolRequestSchema, async (req) => {
+  const params = injectCollections(req.params, defaults);
+  return upstream.request({ method: "tools/call", params }, CallToolResultSchema);
+});
+
+// resources/list, resources/read forwarded the same way (Wave 1)
+
+await downstream.connect(new StdioServerTransport());
+```
+
+Wave 1 budget: < 300 LoC including config, error handling, and the initialize enrichment.
 
 ---
 
