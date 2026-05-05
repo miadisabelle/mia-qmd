@@ -293,7 +293,11 @@ Each companion's MCP configuration registers `qmd-remote` instead of (or alongsi
 2. **Wave 2** — collection injection + `initialize` enrichment.
 3. **Wave 3** — HTTP fan-out + daemon mode (parity with `qmd mcp --http --daemon`).
 4. **Wave 4** — Skill packaged in `jgwill/miadi-orchestration-kit/skills/mcp-remote-qmd/` for one-command setup across companion environments.
-5. **Wave 5 — Expanded Tool Surface** *(envisioned, not yet implemented)*. The whispering_inquiry.sh script exposes capabilities the local MCP does not expose today, but which would meaningfully enrich agent work once the proxy proves stable. Ship them through both `src/mcp/server.ts` and the proxy in lockstep — schema identity must hold:
+5. **Wave 5 — Expanded Tool Surface** *(envisioned, not yet implemented)*. Split into two sub-waves because the local MCP does not expose these tools today (the local `qmd` CLI does — see `qmd context add|list|rm`, `qmd collection add|list|remove|rename`, `qmd ls`). Schema identity demands the local server gain these tools first, then the proxy automatically inherits them via the `tools/list` re-publish strategy.
+
+   **Wave 5a** — Add the new tools to `src/mcp/server.ts` (local MCP). With re-publish identity, the proxy needs no code changes.
+
+   **Wave 5b** — Add the proxy's mutation gating: `--allow-mutations` flag and `QMD_REMOTE_ALLOW_MUTATIONS=1`. When mutations are disallowed, the proxy filters the cached `tools/list` to remove mutation tools (`context_add`, `context_rm`, `collection_add`, `collection_remove`, `collection_rename`) before re-publishing. **Caveat**: identity is preserved only when this flag matches the remote's exposure; if mutations are off in the proxy but on at the remote, the proxy intentionally narrows the surface.
 
    | New MCP Tool | Wraps | Why agents benefit |
    |---|---|---|
@@ -309,7 +313,7 @@ Each companion's MCP configuration registers `qmd-remote` instead of (or alongsi
 
    **Mutation safety**: `context_add`, `context_rm`, and `collection_*` mutations are off by default in the proxy. Enable per-deployment via `--allow-mutations` flag and a separate `QMD_REMOTE_ALLOW_MUTATIONS=1` env var. Read-only is the safe default; trusted-host deployments opt in.
 
-6. **Wave 6 — Provenance & Audit** *(envisioned)*. The proxy logs each tool call (timestamp, tool, agent identity if available, query hash) to a local rotating log at `~/.qmd-remote/audit.log`. Optional: forward to the remote host as `qmd context add` entries against a reserved `audit/` namespace, so the QMD index becomes self-witnessing.
+6. **Wave 6 — Provenance & Audit** *(envisioned)*. The proxy logs each tool call (timestamp, tool name, query hash, latency) to `QMD_REMOTE_AUDIT_LOG` (default `~/.qmd-remote/audit.log`). Rotation: rotate-on-startup if file > 5 MiB, keep the last 3 generations as `.1`, `.2`, `.3`. Format: one JSON object per line. Optional: a daemon-mode flag forwards each line as a `qmd context add` against a reserved `audit/` namespace on the remote, making the QMD index self-witnessing across all agent sessions.
 
 ---
 
