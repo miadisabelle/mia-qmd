@@ -3133,6 +3133,16 @@ if (isMain) {
       break;
     }
 
+    case "mcp-remote": {
+      // Wave 1: SSH-stdio MCP proxy to a remote `qmd mcp` index.
+      // See rispec 07 / src/mcp-remote/. Refs miadisabelle/mia-qmd#10.
+      const { main } = await import("../mcp-remote/index.js");
+      // Pass everything after the subcommand verbatim so flags reach resolveConfig.
+      const argv = process.argv.slice(3);
+      await main(argv);
+      break;
+    }
+
     case "skill": {
       const subcommand = cli.args[0];
       switch (subcommand) {
@@ -3209,7 +3219,7 @@ if (isMain) {
       process.exit(1);
   }
 
-  if (cli.command !== "mcp") {
+  if (cli.command !== "mcp" && cli.command !== "mcp-remote") {
     await disposeDefaultLlamaCpp();
     process.exit(0);
   }
