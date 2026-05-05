@@ -44,11 +44,21 @@ Resolving this tension means treating SSH as just another **transport** for the 
                                           └────────────────────┘
 ```
 
-The proxy is a **transport bridge**, not a re-implementation. MCP frames travel unchanged in both directions. The proxy adds three things at the edges:
+The proxy is a **JSON-RPC frame forwarder**, not a raw byte pipe and not a re-implementation. It pairs an SDK `Server` (facing the agent over stdio) with an SDK `Client` (facing the remote `qmd mcp` over an `StdioClientTransport` whose `command` is `ssh`). Each incoming JSON-RPC request is parsed, optionally rewritten at well-defined points, then issued via `client.request()` and the response forwarded back. The SDK handles framing, ID correlation, and EOF — the proxy contributes only:
 
-1. **Connection lifecycle** — spawn `ssh` once, reuse for the agent's session, restart on EOF.
-2. **Default-collection injection** — optional pre-flight that rewrites incoming `query` / `multi_get` calls to add `-c` filters when the agent omits them (mirrors `whispering_inquiry.sh` collection defaults).
-3. **`initialize` enrichment** — append remote-host provenance to the `instructions` string so the LLM's system prompt mentions which host/collections back this MCP, without altering tool schemas.
+1. **Connection lifecycle** — spawn `ssh` once via the SDK's `StdioClientTransport`, reuse for the agent's session. On unexpected child exit, fail in-flight requests with `ServerError(-32000, "remote disconnected")` and respawn lazily on the next request.
+2. **Default-collection injection** — pre-flight that rewrites incoming `query` calls to add the configured collections to the `collections` array field when the agent omits it. Applies to `query` only (`multi_get` has no collection field — see Wave 5 for collection-aware multi-get).
+3. **`initialize` enrichment** — intercepts the `initialize` response from the remote and appends a fixed-format provenance footer to its `instructions` string: `\n\n— Served by qmd-remote (host: <HOST>, collections: <CSV or "all">)`. Tool definitions and capabilities are forwarded byte-identically.
+
+### Schema Identity Strategy
+
+Identity is preserved by **`tools/list` re-publish**, not by sharing Zod schemas across packages:
+
+- On `initialize`, the proxy issues `tools/list` to the remote and caches the result.
+- The proxy's own SDK `Server` is registered with handlers that, for any `tools/call`, forward to the remote without local schema validation (the remote validates).
+- The proxy's `tools/list` handler returns the cached remote response verbatim.
+- This means the proxy's tool surface is **whatever the remote exposes**, automatically — adding tools to the local MCP at any future wave (e.g. Wave 5's `context_add`) requires zero proxy changes.
+- Trade-off: the proxy cannot inspect tool args by Zod schema; collection injection works on the wire-level JSON object only. Acceptable — injection is a small surgical rewrite, not full validation.
 
 ---
 
