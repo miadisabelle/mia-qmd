@@ -119,25 +119,67 @@ qmd mcp-remote --host mia@eury
 qmd mcp-remote \
   --host mia@eury \
   --remote-bin /home/mia/.nvm/versions/node/v22.22.2/bin/qmd \
-  --collections wikis-md,GUILLAUME-md,iaip-artefacts-md,miadi-md,llms-txt,mia-code-rispecs-md \
-  --limit 8
+  --collections wikis-md,GUILLAUME-md,iaip-artefacts-md,miadi-md,llms-txt,mia-code-rispecs-md
 
 # HTTP fan-out for shared multi-agent use
 qmd mcp-remote --host mia@eury --http --port 8182 --daemon
 qmd mcp-remote stop
 ```
 
-### Environment Variables (parity with `whispering_inquiry.sh`)
+## Configuration
 
-| Var | Purpose | Default |
-|---|---|---|
-| `QMD_REMOTE_HOST` | SSH target | `mia@eury` |
-| `QMD_REMOTE_BIN` | Path to `qmd` on remote | `/home/mia/.nvm/versions/node/v22.22.2/bin/qmd` |
-| `QMD_REMOTE_COLLECTIONS` | Comma-separated default `-c` filters | unset (no injection) |
-| `QMD_REMOTE_LIMIT` | Default `n` for query/search | `8` |
-| `QMD_NO_COLLECTIONS` | `1` disables injection even when set | `0` |
+Configuration is **flag-or-env**, in that order — every CLI flag has a matching env var so deployments can stay declarative. The proxy reads env at startup, applies CLI flag overrides, and freezes the resolved config for the session.
 
-Parity is intentional — anyone with `whispering_inquiry.sh` muscle memory can switch to the MCP proxy by re-using the same envvars.
+### Environment Variables (canonical reference)
+
+| Variable | CLI flag | Purpose | Default | Required |
+|---|---|---|---|---|
+| `QMD_REMOTE_HOST` | `--host` | SSH target (`user@host` or `host`) | _(none)_ | **yes** |
+| `QMD_REMOTE_BIN` | `--remote-bin` | Absolute path to `qmd` binary on remote | `qmd` (rely on remote `$PATH`) | no |
+| `QMD_REMOTE_SSH_OPTS` | `--ssh-opts` | Extra args passed to `ssh` (space-separated) | `-T -o BatchMode=yes -o ServerAliveInterval=30` | no |
+| `QMD_REMOTE_COLLECTIONS` | `--collections` | Comma-separated default collections injected into `query` calls | _(unset → no injection)_ | no |
+| `QMD_NO_COLLECTIONS` | `--no-collections` | `1` to disable injection even when `QMD_REMOTE_COLLECTIONS` is set | `0` | no |
+| `QMD_REMOTE_HTTP_PORT` | `--port` | Port for HTTP transport (Wave 3) | `8182` | no |
+| `QMD_REMOTE_DAEMON_PIDFILE` | `--pidfile` | PID file for daemon mode (Wave 3) | `~/.qmd-remote/daemon.pid` | no |
+| `QMD_REMOTE_AUDIT_LOG` | `--audit-log` | Path to audit log (Wave 6) | `~/.qmd-remote/audit.log` | no |
+| `QMD_REMOTE_ALLOW_MUTATIONS` | `--allow-mutations` | `1` to permit mutation tools (Wave 5b: `context_add`, `collection_*`) | `0` | no |
+| `QMD_REMOTE_LOG_LEVEL` | `--log-level` | One of `error`, `warn`, `info`, `debug` (proxy stderr) | `warn` | no |
+
+Parity with `/etc/claude-code/scripts/whispering_inquiry.sh`: the script's `REMOTE_HOST`, `REMOTE_QMD`, `COLLECTIONS`, `QMD_NO_COLLECTIONS` all map to the proxy variables above. Scripts can be migrated by renaming env vars (`REMOTE_HOST` → `QMD_REMOTE_HOST`, `REMOTE_QMD` → `QMD_REMOTE_BIN`, `COLLECTIONS` → `QMD_REMOTE_COLLECTIONS`).
+
+### Example `.env` (or shell profile)
+
+```sh
+# --- Required ---
+export QMD_REMOTE_HOST="mia@eury"
+
+# --- Recommended ---
+export QMD_REMOTE_BIN="/home/mia/.nvm/versions/node/v22.22.2/bin/qmd"
+export QMD_REMOTE_COLLECTIONS="wikis-md,GUILLAUME-md,iaip-artefacts-md,miadi-md,llms-txt,mia-code-rispecs-md"
+
+# --- Optional ---
+export QMD_REMOTE_LOG_LEVEL="info"
+# export QMD_REMOTE_ALLOW_MUTATIONS="1"   # Wave 5b only — read-only by default
+# export QMD_NO_COLLECTIONS="1"            # Disable default-collection injection
+```
+
+### Precedence
+
+1. CLI flag (highest)
+2. `QMD_REMOTE_*` env var
+3. Built-in default (lowest)
+
+A required variable left unset (only `QMD_REMOTE_HOST` is required) causes the proxy to fail fast at startup with an MCP-visible error so the agent gets a meaningful message instead of a silent hang.
+
+### Resolved Config Surfaced to the LLM
+
+On `initialize`, the proxy enriches the response's `instructions` field with a single line:
+
+```
+— Served by qmd-remote (host: mia@eury, collections: wikis-md,GUILLAUME-md,iaip-artefacts-md,miadi-md,llms-txt,mia-code-rispecs-md)
+```
+
+If `QMD_REMOTE_COLLECTIONS` is unset, the line reads `collections: all`. The LLM thus knows *what knowledge ground it stands on* without ever needing to read the proxy's env.
 
 ---
 
