@@ -170,12 +170,12 @@ For multi-agent fan-out the proxy can instead open `ssh -L 8182:localhost:8181 h
 
 | Local MCP Tool | Remote-side execution | Schema delta |
 |---|---|---|
-| `query` | `qmd query` on EURY | none — identical Zod schema |
-| `get` | `qmd get` on EURY | none |
-| `multi_get` | `qmd multi_get` on EURY | none |
-| `status` | `qmd status` on EURY | response includes `host` field appended in proxy |
+| `query` | `qmd query` on remote | none — proxy forwards raw `tools/list` from remote |
+| `get` | `qmd get` on remote | none |
+| `multi_get` | `qmd multi_get` on remote | none |
+| `status` | `qmd status` on remote | none — provenance is conveyed via `initialize.instructions`, not by mutating tool responses |
 
-Identity is the load-bearing property. Any schema divergence breaks the *transparency* contract and forces agent prompts to branch on remote-vs-local.
+Identity is the load-bearing property. The `tools/list` re-publish strategy makes identity automatic: whatever the remote exposes is what the proxy exposes. No schema divergence is possible by construction.
 
 ---
 
