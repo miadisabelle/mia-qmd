@@ -191,9 +191,18 @@ The proxy passes `resources/list` and `resources/read` through unchanged. `qmd:/
 
 ## Default-Collection Injection
 
-When `QMD_REMOTE_COLLECTIONS` is set and the incoming `query` tool call has no `collection` field, the proxy rewrites the args to add `-c` for each default. This preserves the *opinionated* behavior of `whispering_inquiry.sh` (where every search filters to Guillaume's curated set) without letting that opinion leak into agent prompts.
+The local `query` tool's input schema (see `src/mcp/server.ts`) has a `collections: string[]` field (plural, array). When `QMD_REMOTE_COLLECTIONS` is set and the incoming `query` tool call's `params.arguments` either omits `collections` or supplies an empty array, the proxy rewrites it to the configured default list. The rewrite is a one-line wire-level patch on the parsed JSON-RPC params — no Zod validation, no schema awareness.
 
-Override is explicit: if the agent passes `collection: ["all"]` or sets `QMD_NO_COLLECTIONS=1` in its environment, injection is skipped.
+| Agent sends | Proxy forwards |
+|---|---|
+| `{ queries: [...] }` (no collections key) | `{ queries: [...], collections: [<defaults>] }` |
+| `{ queries: [...], collections: [] }` | `{ queries: [...], collections: [<defaults>] }` |
+| `{ queries: [...], collections: ["wikis-md"] }` | unchanged — agent specified explicitly |
+| Override sentinel `{ queries: [...], collections: ["*"] }` | proxy strips the `collections` key entirely (forward as "search all") |
+
+Skip entirely when `QMD_NO_COLLECTIONS=1` is set in the proxy's environment.
+
+`multi_get` has no `collections` field in the local schema and is **not** rewritten in Wave 2. A collection-aware variant is envisioned in Wave 5b.
 
 ---
 
