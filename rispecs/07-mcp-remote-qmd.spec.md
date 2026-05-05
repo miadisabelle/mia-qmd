@@ -263,15 +263,19 @@ The proxy is **not** a sandbox. It assumes the SSH boundary and the remote `qmd`
 
 ## Agent Configuration
 
-### Claude Desktop / Claude Code
+### Claude Desktop / Claude Code (stdio, env-driven)
+
+The simplest configuration relies entirely on env vars — the MCP entry stays one line:
 
 ```json
 {
   "mcpServers": {
     "qmd-remote": {
       "command": "qmd",
-      "args": ["mcp-remote", "--host", "mia@eury"],
+      "args": ["mcp-remote"],
       "env": {
+        "QMD_REMOTE_HOST": "mia@eury",
+        "QMD_REMOTE_BIN": "/home/mia/.nvm/versions/node/v22.22.2/bin/qmd",
         "QMD_REMOTE_COLLECTIONS": "wikis-md,GUILLAUME-md,iaip-artefacts-md,miadi-md,llms-txt,mia-code-rispecs-md"
       }
     }
@@ -279,7 +283,43 @@ The proxy is **not** a sandbox. It assumes the SSH boundary and the remote `qmd`
 }
 ```
 
-The agent's prompt makes no mention of SSH, EURY, or collections. Tool descriptions read identically to the local MCP. Transparency holds.
+### Claude Desktop / Claude Code (stdio, flag-driven)
+
+For deployments that prefer flags over env (e.g. when env is shared across many MCP servers and you want explicit per-server control):
+
+```json
+{
+  "mcpServers": {
+    "qmd-remote": {
+      "command": "qmd",
+      "args": [
+        "mcp-remote",
+        "--host", "mia@eury",
+        "--remote-bin", "/home/mia/.nvm/versions/node/v22.22.2/bin/qmd",
+        "--collections", "wikis-md,GUILLAUME-md,iaip-artefacts-md,miadi-md,llms-txt,mia-code-rispecs-md"
+      ]
+    }
+  }
+}
+```
+
+### HTTP daemon (Wave 3, multi-agent)
+
+```sh
+qmd mcp-remote --http --port 8182 --daemon \
+  --host mia@eury \
+  --collections wikis-md,GUILLAUME-md,iaip-artefacts-md,miadi-md,llms-txt,mia-code-rispecs-md
+```
+
+```json
+{
+  "mcpServers": {
+    "qmd-remote": { "url": "http://localhost:8182/mcp" }
+  }
+}
+```
+
+The agent's prompt makes no mention of SSH, EURY, or collections in any of these variants. Tool descriptions read identically to the local MCP. Transparency holds.
 
 ### Mia Platform Companion Agents
 
