@@ -17,6 +17,12 @@
 
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+// We use the low-level `Server` (not `McpServer`) on purpose. `McpServer`
+// requires per-tool registration with a named Zod schema — that breaks the
+// rispec's tools/list re-publish strategy, where the proxy must surface
+// whatever the remote exposes without knowing the tool list at compile time.
+// The deprecation hint applies to typical app authors; a generic forwarder
+// needs raw setRequestHandler. (rispec 07 §Schema Identity Strategy.)
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
