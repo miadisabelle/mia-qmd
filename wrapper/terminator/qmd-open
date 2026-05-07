@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# qmd-open — resolve a qmd:// URI to a local cached markdown file.
+#
+# Spec: ~/workspace/rispecs/qmd-handler/option-a-terminator-plugin.rispec.md
+# Issue: miadisabelle/workspace#37
+#
+# Usage: qmd-open "qmd://<collection>/<path>"
+# Stdout: absolute path to cached markdown file
+# Exit: 0 on success; non-zero on failure (errors logged to /tmp/qmd-cache/error.log)
+
+set -euo pipefail
+
+REMOTE_HOST="${REMOTE_HOST:-mia@eury}"
+REMOTE_WORKSPACE="${REMOTE_WORKSPACE:-/home/mia/workspace}"
+REMOTE_QMD_REPO="${REMOTE_QMD_REPO:-$REMOTE_WORKSPACE/repos/miadisabelle/mia-qmd}"
+REMOTE_BUN="${REMOTE_BUN:-/home/mia/.bun/bin/bun}"
+CACHE_DIR="${QMD_CACHE_DIR:-/tmp/qmd-cache}"
+CACHE_TTL="${QMD_CACHE_TTL:-300}"
+
+mkdir -p "$CACHE_DIR"
+LOG="$CACHE_DIR/error.log"
+
+if [ $# -lt 1 ]; then
+  echo "usage: $0 \"qmd://<collection>/<path>\"" >&2
+  exit 64
+fi
+
+URI="$1"
+
+case "$URI" in
+  qmd://*) ;;
+  *) echo "not a qmd:// URI: $URI" >&2; exit 65 ;;
+esac
+
+KEY="$(printf '%s' "$URI" | sha1sum | cut -c1-16)"
+OUT="$CACHE_DIR/$KEY.md"
+TMP="$OUT.tmp.$$"
+
+if [ -f "$OUT" ]; then
+  AGE=$(( $(date +%s) - $(stat -c %Y "$OUT") ))
+  if [ "$AGE" -lt "$CACHE_TTL" ]; then
+    echo "$OUT"
+    exit 0
+  fi
+fi
+
+if ! ssh -o BatchMode=yes "$REMOTE_HOST" "
+  set -euo pipefail
+  cd '$REMOTE_QMD_REPO'
+  '$REMOTE_BUN' src/cli/qmd.ts get '$URI'
+" > "$TMP" 2>>"$LOG"; then
+  rm -f "$TMP"
+  echo "[$(date -Is)] fetch failed for $URI" >> "$LOG"
+  exit 1
+fi
+
+mv "$TMP" "$OUT"
+echo "$OUT"
