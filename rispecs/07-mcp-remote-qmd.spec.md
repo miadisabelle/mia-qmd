@@ -237,10 +237,10 @@ The local `query` tool's input schema (see `src/mcp/server.ts`) has a `collectio
 
 | Agent sends | Proxy forwards |
 |---|---|
-| `{ queries: [...] }` (no collections key) | `{ queries: [...], collections: [<defaults>] }` |
-| `{ queries: [...], collections: [] }` | `{ queries: [...], collections: [<defaults>] }` |
-| `{ queries: [...], collections: ["wikis-md"] }` | unchanged — agent specified explicitly |
-| Override sentinel `{ queries: [...], collections: ["*"] }` | proxy strips the `collections` key entirely (forward as "search all") |
+| `{ searches: [...] }` (no collections key) | `{ searches: [...], collections: [<defaults>] }` |
+| `{ searches: [...], collections: [] }` | `{ searches: [...], collections: [<defaults>] }` |
+| `{ searches: [...], collections: ["wikis-md"] }` | unchanged — agent specified explicitly |
+| Override sentinel `{ searches: [...], collections: ["*"] }` | proxy strips the `collections` key entirely (forward as "search all") |
 
 Skip entirely when `QMD_NO_COLLECTIONS=1` is set in the proxy's environment.
 
@@ -263,6 +263,16 @@ The proxy is **not** a sandbox. It assumes the SSH boundary and the remote `qmd`
 
 ## Agent Configuration
 
+The shared repository config is `etc/mcp-config-qmd-remote-eury.json`. It is intentionally a raw MCP config fragment; client setup can be applied or inspected with:
+
+```sh
+scripts/qmd-remote-client.sh probe
+scripts/qmd-remote-client.sh claude-add-json
+scripts/qmd-remote-client.sh gemini-add-json
+scripts/qmd-remote-client.sh gemini-trust
+scripts/qmd-remote-client.sh gemini-list
+```
+
 ### Claude Desktop / Claude Code (stdio, env-driven)
 
 The simplest configuration relies entirely on env vars — the MCP entry stays one line:
@@ -283,6 +293,12 @@ The simplest configuration relies entirely on env vars — the MCP entry stays o
 }
 ```
 
+For Claude Code, the shared config can also be installed directly:
+
+```sh
+claude mcp add-json qmd-remote "$(jq -c '.mcpServers["qmd-remote"]' etc/mcp-config-qmd-remote-eury.json)"
+```
+
 ### Claude Desktop / Claude Code (stdio, flag-driven)
 
 For deployments that prefer flags over env (e.g. when env is shared across many MCP servers and you want explicit per-server control):
@@ -301,6 +317,16 @@ For deployments that prefer flags over env (e.g. when env is shared across many 
     }
   }
 }
+```
+
+### Gemini CLI
+
+Gemini CLI trust is folder-scoped. When the current folder is not trusted, `gemini -d mcp list` can show stdio MCP servers as `Disconnected` even when the server command and environment are valid. Add this repo to `~/.gemini/trustedFolders.json` with the value `TRUST_FOLDER`, then verify from the repo root:
+
+```sh
+scripts/qmd-remote-client.sh gemini-add-json
+scripts/qmd-remote-client.sh gemini-trust
+scripts/qmd-remote-client.sh gemini-list
 ```
 
 ### HTTP daemon (Wave 3, multi-agent)
