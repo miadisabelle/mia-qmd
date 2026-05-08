@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "qmd": {
+      "type": "stdio",
+      "command": "bun",
+      "args": [
+        "/workspace/repos/miadisabelle/mia-qmd/dist/cli/qmd.js",
+        "mcp"
+      ],
+      "env": {}
+    }
+  }
+}

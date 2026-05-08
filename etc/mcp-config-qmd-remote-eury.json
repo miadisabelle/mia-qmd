@@ -1,0 +1,18 @@
+{
+  "mcpServers": {
+    "qmd-remote": {
+      "type": "stdio",
+      "command": "bun",
+      "args": [
+        "/workspace/repos/miadisabelle/mia-qmd/dist/cli/qmd.js",
+        "mcp-remote"
+      ],
+      "env": {
+        "QMD_REMOTE_HOST": "mia@eury",
+        "QMD_REMOTE_BIN": "/home/mia/.nvm/versions/node/v22.22.2/bin/qmd",
+        "QMD_REMOTE_COLLECTIONS": "wikis-md,GUILLAUME-md,iaip-artefacts-md,miadi-md,llms-txt,mia-code-rispecs-md",
+        "QMD_REMOTE_LOG_LEVEL": "warn"
+      }
+    }
+  }
+}
