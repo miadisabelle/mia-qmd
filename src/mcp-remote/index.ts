@@ -7,7 +7,7 @@
 import { resolveConfig } from "./config.js";
 import { startProxy } from "./proxy.js";
 
-const HELP = `qmd mcp-remote — SSH-stdio MCP proxy to a remote QMD index
+export const MCP_REMOTE_HELP = `qmd mcp-remote — SSH-stdio MCP proxy to a remote QMD index
 
 Usage:
   qmd mcp-remote [options]
@@ -32,7 +32,7 @@ Example:
 
 export async function main(argv: string[] = process.argv.slice(3)): Promise<void> {
   if (argv.includes("-h") || argv.includes("--help")) {
-    process.stdout.write(HELP);
+    process.stdout.write(MCP_REMOTE_HELP);
     return;
   }
   let config;

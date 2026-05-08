@@ -2722,6 +2722,12 @@ if (isMain) {
     process.exit(0);
   }
 
+  if (cli.values.help && cli.command === "mcp-remote") {
+    const { MCP_REMOTE_HELP } = await import("../mcp-remote/index.js");
+    process.stdout.write(MCP_REMOTE_HELP);
+    process.exit(0);
+  }
+
   if (!cli.command || cli.values.help) {
     showHelp();
     process.exit(cli.values.help ? 0 : 1);
