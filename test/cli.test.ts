@@ -239,6 +239,21 @@ describe("CLI Help", () => {
     expect(exitCode).toBe(1);
     expect(stdout).toContain("Usage:");
   });
+
+  test("shows mcp-remote help with --help", async () => {
+    const { stdout, exitCode } = await runQmd(["mcp-remote", "--help"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("qmd mcp-remote");
+    expect(stdout).toContain("--host <user@host>");
+    expect(stdout).toContain("SSH-stdio MCP proxy");
+  });
+
+  test("shows mcp-remote help with -h", async () => {
+    const { stdout, exitCode } = await runQmd(["mcp-remote", "-h"]);
+    expect(exitCode).toBe(0);
+    expect(stdout).toContain("qmd mcp-remote");
+    expect(stdout).toContain("--remote-bin <path>");
+  });
 });
 
 describe("CLI Embed", () => {
