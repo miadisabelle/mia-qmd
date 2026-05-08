@@ -112,6 +112,33 @@ Or configure MCP manually in `~/.claude/settings.json`:
 }
 ```
 
+#### Remote QMD MCP
+
+This repo also includes a stdio SSH proxy for a remote QMD index:
+
+```sh
+qmd mcp-remote --host mia@eury
+qmd mcp-remote --help
+```
+
+For the shared EURY config in `etc/mcp-config-qmd-remote-eury.json`, install it into Claude Code with:
+
+```sh
+claude mcp add-json qmd-remote "$(jq -c '.mcpServers["qmd-remote"]' etc/mcp-config-qmd-remote-eury.json)"
+```
+
+Or use the focused helper script:
+
+```sh
+scripts/qmd-remote-client.sh probe
+scripts/qmd-remote-client.sh claude-add-json
+scripts/qmd-remote-client.sh gemini-add-json
+scripts/qmd-remote-client.sh gemini-trust
+scripts/qmd-remote-client.sh gemini-list
+```
+
+Gemini CLI needs the server in `~/.gemini/settings.json` and reports stdio MCP servers as `Disconnected` when the current folder is not trusted. `gemini-add-json` merges the shared server config, and `gemini-trust` adds this repo to `~/.gemini/trustedFolders.json` with the value `TRUST_FOLDER`; after that, `gemini -d mcp list` from this repo should show `qmd-remote` as connected.
+
 #### HTTP Transport
 
 By default, QMD's MCP server uses stdio (launched as a subprocess by each client). For a shared, long-lived server that avoids repeated model loading, use the HTTP transport:
