@@ -52,8 +52,8 @@ fi
 # 2. Install QMD globally via npm
 # -------------------------------------------------------------------
 echo ""
-echo "Installing @tobilu/qmd globally via npm..."
-npm install -g @tobilu/qmd
+echo "Installing @miadisabelle/qmd globally via npm..."
+npm install -g @miadisabelle/qmd
 
 # Verify
 if command -v qmd &>/dev/null; then
@@ -72,7 +72,7 @@ fi
 if command -v bun &>/dev/null; then
     read -rp "Also install QMD via bun (for bun-native workflows)? [y/N] " reply
     if [[ "$reply" =~ ^[Yy]$ ]]; then
-        bun install -g @tobilu/qmd
+        bun install -g @miadisabelle/qmd
         echo "✅ QMD also installed via bun"
     fi
 fi

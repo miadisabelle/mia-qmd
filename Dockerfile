@@ -5,7 +5,7 @@ FROM jgwill/ubuntu:22-py3.11-node
 
 WORKDIR /app
 
-# Bun + @tobilu/qmd (with --build-from-source-compiled better-sqlite3) and the
+# Bun + @miadisabelle/qmd (with --build-from-source-compiled better-sqlite3) and the
 # native build toolchain (build-essential / python3 / libsqlite3-dev) all come
 # from the base image jgwill/ubuntu:22-py3.11-node — keep them baked there so
 # this build stays fast and cacheable.

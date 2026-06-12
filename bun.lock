@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "@tobilu/qmd",
+      "name": "@miadisabelle/qmd",
       "dependencies": {
         "@modelcontextprotocol/sdk": "^1.25.1",
         "better-sqlite3": "^12.4.5",
