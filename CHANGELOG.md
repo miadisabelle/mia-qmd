@@ -2,11 +2,13 @@
 
 ## [Unreleased]
 
+## [2.0.3] - 2026-06-11
+
 ### Changes
 
-- Add wave-2 rispec drafts for QMD promotion lifecycle and wiki-style knowledge
-  handling, and align multi-persona federation spec with the existing
-  `fn_qmd_client.sh` router as the federation surface.
+- Upgrade README with detailed remote usage (SSH-transparent proxy) and links to RISE specifications.
+- Add `scripts/qmd-remote-client.sh` helper for easier client-side MCP configuration.
+- Add wave-2 rispec drafts for QMD promotion lifecycle and wiki-style knowledge handling, and align multi-persona federation spec with the existing `fn_qmd_client.sh` router as the federation surface.
 
 ### Fixes
 
