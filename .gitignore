@@ -19,3 +19,10 @@ texts/
 finetune/outputs/
 finetune/data/train/
 .claude/
+.hch/
+.mia/
+.pde/
+output/
+scripts/RESUME--*
+scripts/run-persona-query-wave.sh
+scripts/wikis.sh
