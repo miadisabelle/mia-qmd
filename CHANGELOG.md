@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [2.0.5] - 2026-06-11
+
 ### Changes
 
 - Update package metadata and repository links for the `@miadisabelle/qmd` fork.
