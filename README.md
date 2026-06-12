@@ -112,13 +112,19 @@ Or configure MCP manually in `~/.claude/settings.json`:
 }
 ```
 
-#### Remote QMD MCP
+#### Remote QMD MCP (SSH-Transparent Proxy)
 
-This repo also includes a stdio SSH proxy for a remote QMD index:
+QMD supports network-transparent remote access via an SSH-transparent MCP proxy. This allows a local agent to consume a remote QMD index (e.g., on a high-performance server or dedicated knowledge host like EURY) as if it were local, using the Model Context Protocol over an SSH transport.
 
 ```sh
+# Start the remote proxy (stdio bridge)
 qmd mcp-remote --host mia@eury
-qmd mcp-remote --help
+
+# With explicit remote binary and collection defaults
+qmd mcp-remote \
+  --host mia@eury \
+  --remote-bin /home/mia/.nvm/versions/node/v22.22.2/bin/qmd \
+  --collections wikis-md,llms-txt,mia-code-rispecs-md
 ```
 
 For the shared EURY config in `etc/mcp-config-qmd-remote-eury.json`, install it into Claude Code with:
@@ -905,6 +911,18 @@ Uses node-llama-cpp's `createRankingContext()` and `rankAndSort()` API for cross
 ### Qwen3 (Query Expansion)
 
 Used for generating query variations via `LlamaChatSession`.
+
+## Specifications (RISE)
+
+Detailed specifications for the `mia-qmd` architecture, federation model, and knowledge lifecycles are available in the [rispecs/](./rispecs/) directory:
+
+- [01 — Search Engine Core](./rispecs/01-search-engine-core.spec.md) — Hybrid search architecture
+- [02 — MCP Server Integration](./rispecs/02-mcp-server-integration.spec.md) — Tool definitions for agents
+- [03 — Workspace Collection Model](./rispecs/03-workspace-collection-model.spec.md) — Topology and context trees
+- [04 — Multi-Persona QMD Federation](./rispecs/04-multi-persona-federation.spec.md) — Isolated persona routing
+- [05 — QMD Promotion Lifecycle](./rispecs/05-qmd-promotion-lifecycle.spec.md) — From research to promoted knowledge
+- [06 — Wiki-Style Knowledge Handling](./rispecs/06-wiki-knowledge-handling.spec.md) — Concept-first authoring
+- [07 — MCP Remote QMD (SSH-Transparent Proxy)](./rispecs/07-mcp-remote-qmd.spec.md) — Network-transparent remote access
 
 ## License
 
