@@ -95,7 +95,7 @@ Although the tool works perfectly fine when you just tell your agent to use it o
 **Claude Code** — Install the plugin (recommended):
 
 ```bash
-claude plugin marketplace add tobi/qmd
+claude plugin marketplace add miadisabelle/mia-qmd
 claude plugin install qmd@qmd
 ```
 
@@ -558,8 +558,8 @@ bun install -g @tobilu/qmd
 ### Development
 
 ```sh
-git clone https://github.com/tobi/qmd
-cd qmd
+git clone https://github.com/miadisabelle/mia-qmd
+cd mia-qmd
 npm install
 npm link
 ```

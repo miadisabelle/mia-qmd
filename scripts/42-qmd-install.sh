@@ -2,7 +2,7 @@
 # 42-qmd-install.sh — Install QMD (Query Markup Documents) search engine
 # Prerequisites: 00-nodejs-install.sh (Node.js >= 22), 40-bun-install.sh, 41-sqlite-dev-install.sh
 # Also needs: build-essential, python3 (for node-gyp native compilation)
-# Source: https://github.com/tobi/qmd | /workspace/repos/miadisabelle/mia-qmd
+# Source: https://github.com/miadisabelle/mia-qmd | /workspace/repos/miadisabelle/mia-qmd
 set -euo pipefail
 
 echo "=== Installing QMD (Query Markup Documents) ==="

@@ -39,11 +39,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tobi/qmd.git"
+    "url": "git+https://github.com/miadisabelle/mia-qmd.git"
   },
-  "homepage": "https://github.com/tobi/qmd#readme",
+  "homepage": "https://github.com/miadisabelle/mia-qmd#readme",
   "bugs": {
-    "url": "https://github.com/tobi/qmd/issues"
+    "url": "https://github.com/miadisabelle/mia-qmd/issues"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1",
