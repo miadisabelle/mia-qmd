@@ -8,7 +8,7 @@
  */
 
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { randomUUID } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "url";
@@ -869,7 +869,7 @@ function resolveSessionTtlMs(sessionTtlSeconds?: number): number {
  */
 export async function startMcpHttpServer(
   port: number,
-  options: ({ quiet?: boolean; host?: string; sessionTtlSeconds?: number } & McpStartupOptions) = {},
+  options: ({ quiet?: boolean; host?: string; sessionTtlSeconds?: number; authToken?: string } & McpStartupOptions) = {},
 ): Promise<HttpServerHandle> {
   // See startMcpServer() for the rationale — flip production mode here so the
   // HTTP transport resolves the real database path, without leaking state into
@@ -986,11 +986,50 @@ export async function startMcpHttpServer(
     return Buffer.concat(chunks).toString();
   }
 
+  // fork: bearer-token gate for the HTTP transport.
+  //
+  // The tunnel that exposes this port is public, so without a token the URL is
+  // the only secret and it grants read of the entire index. When a token is
+  // configured every path except /health requires `Authorization: Bearer <token>`.
+  // When none is configured behaviour is unchanged (open) — but say so loudly at
+  // startup, because an unauthenticated public endpoint should never be quiet.
+  const authToken = (options.authToken ?? process.env.QMD_MCP_HTTP_TOKEN ?? "").trim();
+
+  function tokenMatches(presented: string): boolean {
+    const a = Buffer.from(presented);
+    const b = Buffer.from(authToken);
+    // timingSafeEqual throws on length mismatch; compare lengths first so a
+    // wrong-length token fails without leaking which byte diverged.
+    return a.length === b.length && timingSafeEqual(a, b);
+  }
+
+  function isAuthorized(nodeReq: IncomingMessage): boolean {
+    if (!authToken) return true;
+    const header = nodeReq.headers["authorization"];
+    const value = Array.isArray(header) ? header[0] : header;
+    if (!value) return false;
+    const match = /^Bearer[ ]+(.+)$/i.exec(value.trim());
+    const presented = match?.[1]?.trim();
+    return presented ? tokenMatches(presented) : false;
+  }
+
   const httpServer = createServer(async (nodeReq: IncomingMessage, nodeRes: ServerResponse) => {
     const reqStart = Date.now();
     const pathname = nodeReq.url || "/";
 
     try {
+      // /health stays open: it is the liveness probe for systemd and the tunnel,
+      // and it discloses nothing but uptime.
+      if (pathname !== "/health" && !isAuthorized(nodeReq)) {
+        nodeRes.writeHead(401, {
+          "Content-Type": "application/json",
+          "WWW-Authenticate": 'Bearer realm="qmd"',
+        });
+        nodeRes.end(JSON.stringify({ error: "Unauthorized: expected Authorization: Bearer <token>" }));
+        log(`${ts()} 401 ${nodeReq.method} ${pathname} (${Date.now() - reqStart}ms)`);
+        return;
+      }
+
       if (pathname === "/health" && nodeReq.method === "GET") {
         const body = JSON.stringify({ status: "ok", uptime: Math.floor((Date.now() - startTime) / 1000) });
         nodeRes.writeHead(200, { "Content-Type": "application/json" });
@@ -1187,6 +1226,11 @@ export async function startMcpHttpServer(
   });
 
   log(`QMD MCP server listening on http://${host}:${actualPort}/mcp`);
+  if (authToken) {
+    log(`Auth: bearer token required (${authToken.length} chars); /health remains open`);
+  } else {
+    log(`Auth: DISABLED — every request is accepted. Set QMD_MCP_HTTP_TOKEN or pass --auth-token before exposing this port publicly.`);
+  }
   return { httpServer, port: actualPort, stop };
 }
 

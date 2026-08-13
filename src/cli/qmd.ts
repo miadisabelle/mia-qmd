@@ -2864,6 +2864,7 @@ function parseCLI() {
       port: { type: "string" },
       host: { type: "string" },
       "session-ttl": { type: "string" },
+      "auth-token": { type: "string" },  // fork: bearer token for --http (else QMD_MCP_HTTP_TOKEN)
     },
     allowPositionals: true,
     strict: false, // Allow unknown options to pass through
@@ -4587,6 +4588,11 @@ if (isMain) {
               // Explicit resolved DB path so the child does not depend on
               // re-parsing --index (and cannot inherit a stale INDEX_PATH).
               INDEX_PATH: getDbPath(),
+              // fork: forward --auth-token by environment, never on argv — a
+              // detached daemon's command line is world-readable via ps.
+              ...(cli.values["auth-token"]
+                ? { QMD_MCP_HTTP_TOKEN: String(cli.values["auth-token"]) }
+                : {}),
             },
           });
           child.unref();
@@ -4614,7 +4620,8 @@ if (isMain) {
         process.on("exit", unlinkOwnPidfile);
         const { startMcpHttpServer } = await import("../mcp/server.js");
         try {
-          await startMcpHttpServer(port, { dbPath: getDbPath(), host, ...(sessionTtl !== undefined ? { sessionTtlSeconds: sessionTtl } : {}) });
+          const authToken = cli.values["auth-token"] ? String(cli.values["auth-token"]) : undefined;
+          await startMcpHttpServer(port, { dbPath: getDbPath(), host, ...(sessionTtl !== undefined ? { sessionTtlSeconds: sessionTtl } : {}), ...(authToken ? { authToken } : {}) });
         } catch (e: unknown) {
           if (typeof e === "object" && e !== null && "code" in e && e.code === "EADDRINUSE") {
             console.error(`Port ${port} already in use. Try a different port with --port.`);
