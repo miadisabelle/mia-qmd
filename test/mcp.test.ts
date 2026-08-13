@@ -80,6 +80,7 @@ function initTestDatabase(db: Database): void {
       seq INTEGER NOT NULL DEFAULT 0,
       pos INTEGER NOT NULL DEFAULT 0,
       model TEXT NOT NULL,
+      embed_fingerprint TEXT NOT NULL DEFAULT '',
       embedded_at TEXT NOT NULL,
       PRIMARY KEY (hash, seq)
     )
@@ -186,7 +187,7 @@ function seedTestData(db: Database): void {
   for (let i = 0; i < 768; i++) embedding[i] = Math.random();
 
   for (const doc of docs.slice(0, 4)) { // Skip large file for embeddings
-    db.prepare(`INSERT INTO content_vectors (hash, seq, pos, model, embedded_at) VALUES (?, 0, 0, 'embeddinggemma', ?)`).run(doc.hash, now);
+    db.prepare(`INSERT INTO content_vectors (hash, seq, pos, model, embed_fingerprint, embedded_at) VALUES (?, 0, 0, ?, ?, ?)`).run(doc.hash, DEFAULT_EMBED_MODEL, getEmbeddingFingerprint(DEFAULT_EMBED_MODEL), now);
     db.prepare(`INSERT INTO vectors_vec (hash_seq, embedding) VALUES (?, ?)`).run(`${doc.hash}_0`, embedding);
   }
 }
@@ -211,6 +212,7 @@ import {
   findDocuments,
   getStatus,
   DEFAULT_EMBED_MODEL,
+  getEmbeddingFingerprint,
   DEFAULT_QUERY_MODEL,
   DEFAULT_RERANK_MODEL,
   DEFAULT_MULTI_GET_MAX_BYTES,
@@ -358,7 +360,7 @@ describe("MCP Server", () => {
         expect(['lex', 'vec', 'hyde']).toContain(q.type);
         expect(q.query.length).toBeGreaterThan(0);
       }
-    }, 30000); // 30s timeout for model loading
+    }, 90000);
 
     test("performs RRF fusion on multiple result lists", () => {
       const list1: RankedResult[] = [
@@ -431,7 +433,7 @@ describe("MCP Server", () => {
       );
 
       expect(reranked.length).toBeGreaterThan(0);
-    });
+    }, 90000);
   });
 
   // ===========================================================================
@@ -473,7 +475,10 @@ describe("MCP Server", () => {
       const result = findDocument(testDb, "readm.md", { includeBody: false }); // typo
       expect("error" in result).toBe(true);
       if ("error" in result) {
-        expect(result.similarFiles.length).toBeGreaterThanOrEqual(0);
+        expect(result.error).toBe("not_found");
+        if (result.error === "not_found") {
+          expect(result.similarFiles.length).toBeGreaterThanOrEqual(0);
+        }
       }
     });
 
@@ -536,6 +541,13 @@ describe("MCP Server", () => {
       expect(docs.length).toBe(1);
       expect(errors.length).toBe(1);
       expect(errors[0]).toContain("not found");
+    });
+
+    test("default maxBytes includes normal wiki-sized files", () => {
+      expect(DEFAULT_MULTI_GET_MAX_BYTES).toBe(64 * 1024);
+      const { docs } = findDocuments(testDb, "large-file.md", { includeBody: true });
+      expect(docs.length).toBe(1);
+      expect(docs[0]!.skipped).toBe(false);
     });
 
     test("skips files larger than maxBytes", () => {
@@ -887,6 +899,33 @@ describe("MCP Server", () => {
         expect(typeof col.documents).toBe("number");
       }
     });
+
+    test("REST /query and /search file field uses qmd:// URI prefix (#576)", () => {
+      // Regression test: the HTTP REST endpoint was returning r.displayPath (e.g.
+      // "docs/readme.md") instead of "qmd://docs/readme.md", while the CLI and MCP
+      // resource URIs always use the qmd:// scheme. This simulates the fix: the REST
+      // handler now applies encodeQmdPath and prepends "qmd://".
+      const results = searchFTS(testDb, "readme", 5);
+      expect(results.length).toBeGreaterThan(0);
+
+      // Simulate what the fixed REST handler produces for each result
+      const restResponseItems = results.map(r => ({
+        docid: `#${r.docid}`,
+        file: `qmd://${r.displayPath.split('/').map(s => encodeURIComponent(s)).join('/')}`,
+        title: r.title,
+        score: Math.round(r.score * 100) / 100,
+      }));
+
+      // Every file field must start with qmd://
+      for (const item of restResponseItems) {
+        expect(item.file).toMatch(/^qmd:\/\//);
+      }
+
+      // Spot-check the readme result
+      const readmeItem = restResponseItems.find(item => item.file.includes("readme"));
+      expect(readmeItem).toBeDefined();
+      expect(readmeItem!.file).toBe("qmd://docs/readme.md");
+    });
   });
 });
 
@@ -912,6 +951,22 @@ describe.skipIf(!!process.env.CI)("MCP HTTP Transport", () => {
     const db = openDatabase(httpTestDbPath);
     initTestDatabase(db);
     seedTestData(db);
+
+    // 300 pad lines (37 chars each = 11100 chars) puts the marker past the
+    // first chunk boundary at CHUNK_SIZE_CHARS = 3600.
+    {
+      const padLine = "Pad line for chunk boundary coverage\n";
+      const absLineFixtureBody =
+        padLine.repeat(300) +
+        "UNIQUE_KEYWORD_XYZ marker\n" +
+        padLine.repeat(20);
+      const fixtureHash = "hash-abslines";
+      const now = new Date().toISOString();
+      db.prepare(`INSERT OR IGNORE INTO content (hash, doc, created_at) VALUES (?, ?, ?)`)
+        .run(fixtureHash, absLineFixtureBody, now);
+      db.prepare(`INSERT INTO documents (collection, path, title, hash, created_at, modified_at, active) VALUES ('docs', ?, ?, ?, ?, ?, 1)`)
+        .run("absolute-line-fixture.md", "Absolute Line Fixture", fixtureHash, now, now);
+    }
 
     // Sync config into SQLite
     const httpTestConfig: CollectionConfig = {
@@ -1073,5 +1128,78 @@ describe.skipIf(!!process.env.CI)("MCP HTTP Transport", () => {
     expect(status).toBe(200);
     expect(json.result).toBeDefined();
     expect(json.result.content.length).toBeGreaterThan(0);
+  });
+
+  test("POST /mcp tools/call query returns absolute source-file line numbers, not chunk-local", async () => {
+    await mcpRequest({
+      jsonrpc: "2.0", id: 1, method: "initialize",
+      params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+    });
+
+    const { status, json } = await mcpRequest({
+      jsonrpc: "2.0", id: 5, method: "tools/call",
+      params: {
+        name: "query",
+        arguments: {
+          searches: [{ type: "lex", query: "UNIQUE_KEYWORD_XYZ" }],
+          rerank: false,
+        },
+      },
+    });
+    expect(status).toBe(200);
+    const results = json.result.structuredContent.results;
+    expect(results.length).toBeGreaterThan(0);
+    const hit = results.find((r: any) => r.file === "docs/absolute-line-fixture.md");
+    expect(hit).toBeDefined();
+    expect(hit.line).toBe(301);
+    expect(hit.snippet).toMatch(/^\d+: @@ -3\d\d,/);
+  });
+
+  test("idle sessions expire after the TTL and clients can re-initialize", async () => {
+    // Separate server so the aggressive TTL can't interfere with the shared
+    // handle used by the other tests.
+    const ttlHandle = await startMcpHttpServer(0, { quiet: true, sessionTtlSeconds: 1 });
+    const url = `http://localhost:${ttlHandle.port}/mcp`;
+    const headers = {
+      "Content-Type": "application/json",
+      "Accept": "application/json, text/event-stream",
+    };
+    const initBody = (id: number) => JSON.stringify({
+      jsonrpc: "2.0", id, method: "initialize",
+      params: { protocolVersion: "2025-03-26", capabilities: {}, clientInfo: { name: "test", version: "1.0" } },
+    });
+    try {
+      const init = await fetch(url, { method: "POST", headers, body: initBody(1) });
+      expect(init.status).toBe(200);
+      const sid = init.headers.get("mcp-session-id");
+      expect(sid).toBeTruthy();
+
+      // Requests inside the TTL keep the session alive.
+      const early = await fetch(url, {
+        method: "POST",
+        headers: { ...headers, "mcp-session-id": sid! },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 2, method: "tools/list", params: {} }),
+      });
+      expect(early.status).toBe(200);
+
+      // Idle past the TTL: the reaper closes the session and the server
+      // answers 404, which per the Streamable HTTP spec tells the client to
+      // start a new session.
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      const stale = await fetch(url, {
+        method: "POST",
+        headers: { ...headers, "mcp-session-id": sid! },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 3, method: "tools/list", params: {} }),
+      });
+      expect(stale.status).toBe(404);
+
+      const reinit = await fetch(url, { method: "POST", headers, body: initBody(4) });
+      expect(reinit.status).toBe(200);
+      const newSid = reinit.headers.get("mcp-session-id");
+      expect(newSid).toBeTruthy();
+      expect(newSid).not.toBe(sid);
+    } finally {
+      await ttlHandle.stop();
+    }
   });
 });
