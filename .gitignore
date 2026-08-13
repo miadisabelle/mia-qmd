@@ -26,3 +26,6 @@ output/
 scripts/RESUME--*
 scripts/run-persona-query-wave.sh
 scripts/wikis.sh
+
+# Secrets — QMD MCP bearer token
+.env
